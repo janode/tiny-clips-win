@@ -1,0 +1,21 @@
+<Window
+    x:Class="TinyClips.Views.StopRecordingWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Stop Recording">
+    <Grid Padding="12,8" Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}" CornerRadius="8" ColumnSpacing="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <Ellipse x:Name="RecordingDot" Grid.Column="0" Width="10" Height="10" Fill="#FF3B30" VerticalAlignment="Center" AutomationProperties.Name="Recording in progress" />
+        <TextBlock x:Name="TimerText" Grid.Column="1" Text="00:00" FontSize="15" FontFamily="Consolas" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" AutomationProperties.Name="Recording duration" />
+        <Button x:Name="StopButton" Grid.Column="2" Click="OnStopClick" AutomationProperties.Name="Stop recording" ToolTipService.ToolTip="Stop recording (Ctrl+.)">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <FontIcon Glyph="&#xE71A;" FontSize="14" Foreground="#FF3B30" />
+                <TextBlock Text="Stop" FontSize="13" />
+            </StackPanel>
+        </Button>
+    </Grid>
+</Window>

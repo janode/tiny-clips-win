@@ -1,0 +1,24 @@
+<Window
+    x:Class="TinyClips.Views.StartRecordingWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Start Recording">
+    <Grid Padding="12,8" Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}" CornerRadius="8" ColumnSpacing="10">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+            <FontIcon x:Name="ModeIcon" Glyph="&#xE714;" FontSize="14" />
+            <TextBlock x:Name="ModeLabel" Text="Record Video" FontSize="13" VerticalAlignment="Center" AutomationProperties.Name="Recording mode" />
+        </StackPanel>
+        <AppBarSeparator Grid.Column="1" />
+        <Button x:Name="StartButton" Grid.Column="2" Style="{StaticResource AccentButtonStyle}" Click="OnStartClick" AutomationProperties.Name="Start recording" ToolTipService.ToolTip="Start recording (Enter)">
+            <StackPanel Orientation="Horizontal" Spacing="6">
+                <Ellipse Width="10" Height="10" Fill="#FF3B30" />
+                <TextBlock Text="Start" FontSize="13" />
+            </StackPanel>
+        </Button>
+    </Grid>
+</Window>

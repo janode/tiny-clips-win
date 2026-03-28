@@ -1,0 +1,28 @@
+# Build outputs
+bin/
+obj/
+publish/
+
+# NuGet
+*.nupkg
+project.assets.json
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.cache
+*.dbmdl
+*.jfm
+launchSettings.json
+
+# Rider
+.idea/
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Build workaround
+/BuildTest/

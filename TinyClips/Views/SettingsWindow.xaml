@@ -1,0 +1,153 @@
+<Window
+    x:Class="TinyClips.Views.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="TinyClips Settings">
+
+    <NavigationView
+        x:Name="NavView"
+        PaneDisplayMode="Left"
+        IsBackButtonVisible="Collapsed"
+        IsSettingsVisible="False"
+        SelectionChanged="OnNavigationChanged"
+        OpenPaneLength="180">
+
+        <NavigationView.MenuItems>
+            <NavigationViewItem Content="General" Tag="General">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE713;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Screenshot" Tag="Screenshot">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE722;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Video" Tag="Video">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE714;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="GIF" Tag="GIF">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xF4A9;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Shortcuts" Tag="Shortcuts">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE765;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="About" Tag="About">
+                <NavigationViewItem.Icon><FontIcon Glyph="&#xE946;" /></NavigationViewItem.Icon>
+            </NavigationViewItem>
+        </NavigationView.MenuItems>
+
+        <ScrollViewer Padding="24,16,24,24">
+            <Grid>
+                <!-- General Page -->
+                <StackPanel x:Name="GeneralPage" Spacing="4">
+                    <TextBlock Text="General" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,16" />
+
+                    <TextBlock Text="Save location" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="SaveDirectoryBox" Grid.Column="0" IsReadOnly="True" PlaceholderText="Default: Pictures" AutomationProperties.Name="Save directory" />
+                        <Button Grid.Column="1" Content="Browse..." Click="OnBrowseFolder" AutomationProperties.Name="Browse for save folder" />
+                    </Grid>
+
+                    <TextBlock Text="File name template" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,16,0,4" />
+                    <TextBox x:Name="FileNameTemplateBox" TextChanged="OnFileNameTemplateChanged" PlaceholderText="TinyClips {date} at {time}" AutomationProperties.Name="File name template" />
+
+                    <ToggleSwitch x:Name="CopyToClipboardToggle" Header="Copy to clipboard after capture" Toggled="OnCopyClipboardToggled" Margin="0,16,0,0" />
+                    <ToggleSwitch x:Name="ShowInExplorerToggle" Header="Show in Explorer after save" Toggled="OnShowExplorerToggled" />
+                    <ToggleSwitch x:Name="ShowNotificationToggle" Header="Show notification after save" Toggled="OnShowNotificationToggled" />
+                    <ToggleSwitch x:Name="OpenAfterCaptureToggle" Header="Open file after capture" Toggled="OnOpenAfterCaptureToggled" />
+                    <ToggleSwitch x:Name="LaunchAtLoginToggle" Header="Launch at login" Toggled="OnLaunchAtLoginToggled" />
+                </StackPanel>
+
+                <!-- Screenshot Page -->
+                <StackPanel x:Name="ScreenshotPage" Spacing="4" Visibility="Collapsed">
+                    <TextBlock Text="Screenshot" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,16" />
+
+                    <TextBlock Text="Image format" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
+                    <ComboBox x:Name="ImageFormatCombo" SelectionChanged="OnImageFormatChanged" AutomationProperties.Name="Image format">
+                        <ComboBoxItem Content="PNG" />
+                        <ComboBoxItem Content="JPEG" />
+                    </ComboBox>
+
+                    <StackPanel x:Name="JpegQualityPanel" Spacing="4" Margin="0,12,0,0">
+                        <TextBlock Text="JPEG quality" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <Slider x:Name="JpegQualitySlider" Minimum="10" Maximum="100" StepFrequency="5" ValueChanged="OnJpegQualityChanged" AutomationProperties.Name="JPEG quality" />
+                    </StackPanel>
+
+                    <ToggleSwitch x:Name="ScreenshotCountdownToggle" Header="Countdown before capture" Toggled="OnScreenshotCountdownToggled" Margin="0,12,0,0" />
+                    <NumberBox x:Name="ScreenshotCountdownBox" Header="Countdown (seconds)" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" ValueChanged="OnScreenshotCountdownValueChanged" AutomationProperties.Name="Screenshot countdown seconds" />
+                </StackPanel>
+
+                <!-- Video Page -->
+                <StackPanel x:Name="VideoPage" Spacing="4" Visibility="Collapsed">
+                    <TextBlock Text="Video" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,16" />
+
+                    <TextBlock Text="Frame rate" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
+                    <ComboBox x:Name="VideoFpsCombo" SelectionChanged="OnVideoFpsChanged" AutomationProperties.Name="Video frame rate">
+                        <ComboBoxItem Content="15 fps" Tag="15" />
+                        <ComboBoxItem Content="24 fps" Tag="24" />
+                        <ComboBoxItem Content="30 fps" Tag="30" />
+                        <ComboBoxItem Content="60 fps" Tag="60" />
+                    </ComboBox>
+
+                    <ToggleSwitch x:Name="SystemAudioToggle" Header="Record system audio" Toggled="OnSystemAudioToggled" Margin="0,12,0,0" />
+                    <ToggleSwitch x:Name="VideoCountdownToggle" Header="Countdown before recording" Toggled="OnVideoCountdownToggled" />
+                    <NumberBox x:Name="VideoCountdownBox" Header="Countdown (seconds)" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" ValueChanged="OnVideoCountdownValueChanged" AutomationProperties.Name="Video countdown seconds" />
+                </StackPanel>
+
+                <!-- GIF Page -->
+                <StackPanel x:Name="GifPage" Spacing="4" Visibility="Collapsed">
+                    <TextBlock Text="GIF" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,16" />
+
+                    <TextBlock Text="Frame rate" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
+                    <ComboBox x:Name="GifFpsCombo" SelectionChanged="OnGifFpsChanged" AutomationProperties.Name="GIF frame rate">
+                        <ComboBoxItem Content="5 fps" Tag="5" />
+                        <ComboBoxItem Content="10 fps" Tag="10" />
+                        <ComboBoxItem Content="15 fps" Tag="15" />
+                        <ComboBoxItem Content="24 fps" Tag="24" />
+                    </ComboBox>
+
+                    <NumberBox x:Name="GifMaxWidthBox" Header="Max width (px)" Minimum="100" Maximum="2560" SpinButtonPlacementMode="Compact" ValueChanged="OnGifMaxWidthChanged" Margin="0,12,0,0" AutomationProperties.Name="GIF max width" />
+                    <ToggleSwitch x:Name="GifCountdownToggle" Header="Countdown before recording" Toggled="OnGifCountdownToggled" />
+                    <NumberBox x:Name="GifCountdownBox" Header="Countdown (seconds)" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" ValueChanged="OnGifCountdownValueChanged" AutomationProperties.Name="GIF countdown seconds" />
+                </StackPanel>
+
+                <!-- Shortcuts Page -->
+                <StackPanel x:Name="ShortcutsPage" Spacing="4" Visibility="Collapsed">
+                    <TextBlock Text="Shortcuts" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,16" />
+
+                    <Grid RowSpacing="12" ColumnSpacing="16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Screenshot" VerticalAlignment="Center" />
+                        <TextBlock x:Name="ScreenshotShortcutLabel" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.Name="Screenshot shortcut" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Video" VerticalAlignment="Center" />
+                        <TextBlock x:Name="VideoShortcutLabel" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.Name="Video shortcut" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="GIF" VerticalAlignment="Center" />
+                        <TextBlock x:Name="GifShortcutLabel" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.Name="GIF shortcut" />
+                    </Grid>
+
+                    <Button Content="Reset to defaults" Click="OnResetShortcuts" Margin="0,20,0,0" AutomationProperties.Name="Reset shortcuts to defaults" />
+                </StackPanel>
+
+                <!-- About Page -->
+                <StackPanel x:Name="AboutPage" Spacing="8" Visibility="Collapsed">
+                    <TextBlock Text="About" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,16" />
+                    <TextBlock Text="TinyClips" FontSize="20" FontWeight="SemiBold" />
+                    <TextBlock x:Name="VersionLabel" Text="Version 1.0.0" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.Name="App version" />
+                    <TextBlock Text="Screen capture for Windows" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Margin="0,4,0,0" />
+                </StackPanel>
+            </Grid>
+        </ScrollViewer>
+    </NavigationView>
+</Window>

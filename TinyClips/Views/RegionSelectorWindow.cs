@@ -1,0 +1,310 @@
+using System.Drawing;
+using System.Runtime.InteropServices;
+using TinyClips.Capture;
+using TinyClips.Helpers;
+
+namespace TinyClips.Views;
+
+/// <summary>
+/// Full-screen transparent overlay for selecting a screen region.
+/// Uses a raw Win32 layered window for maximum reliability and performance.
+/// Renders a crosshair cursor and a selection rectangle.
+/// </summary>
+public sealed class RegionSelectorWindow : IDisposable
+{
+    private nint _hwnd;
+    private bool _isSelecting;
+    private Point _startPoint;
+    private Point _currentPoint;
+    private bool _hasSelection;
+    private readonly TaskCompletionSource<CaptureRegion?> _tcs = new();
+    private GCHandle _wndProcHandle;
+    private WndProcDelegate? _wndProc;
+
+    private delegate nint WndProcDelegate(nint hwnd, uint msg, nint wParam, nint lParam);
+
+    private const uint WM_LBUTTONDOWN = 0x0201;
+    private const uint WM_MOUSEMOVE = 0x0200;
+    private const uint WM_LBUTTONUP = 0x0202;
+    private const uint WM_KEYDOWN = 0x0100;
+    private const uint WM_PAINT = 0x000F;
+    private const uint WM_ERASEBKGND = 0x0014;
+    private const uint WM_SETCURSOR = 0x0020;
+    private const int VK_ESCAPE = 0x1B;
+    private const string ClassName = "TinyClips_RegionSelector";
+
+    /// <summary>
+    /// Show the region selector and wait for the user to select a region.
+    /// Returns null if cancelled.
+    /// </summary>
+    public static async Task<CaptureRegion?> SelectRegionAsync()
+    {
+        var selector = new RegionSelectorWindow();
+        selector.Show();
+        var result = await selector._tcs.Task;
+        selector.Dispose();
+        return result;
+    }
+
+    private void Show()
+    {
+        _wndProc = WndProc;
+        _wndProcHandle = GCHandle.Alloc(_wndProc);
+
+        var hInstance = GetModuleHandle(null);
+        var wndClass = new WNDCLASSEX
+        {
+            cbSize = Marshal.SizeOf<WNDCLASSEX>(),
+            lpfnWndProc = Marshal.GetFunctionPointerForDelegate(_wndProc),
+            lpszClassName = ClassName,
+            hInstance = hInstance,
+            hCursor = LoadCursor(nint.Zero, 32512) // IDC_ARROW
+        };
+        RegisterClassEx(ref wndClass);
+
+        // Get the virtual screen bounds (all monitors combined)
+        var bounds = ScreenInfo.GetVirtualScreenBounds();
+
+        _hwnd = CreateWindowEx(
+            NativeMethods.WS_EX_TOPMOST | 0x00080000, // WS_EX_TOPMOST | WS_EX_LAYERED
+            ClassName, "Region Selector",
+            unchecked((int)0x96000000), // WS_POPUP | WS_VISIBLE | WS_MAXIMIZE
+            bounds.Left, bounds.Top, bounds.Width, bounds.Height,
+            nint.Zero, nint.Zero, hInstance, nint.Zero);
+
+        // Make the window semi-transparent (alpha 128 = ~50%)
+        SetLayeredWindowAttributes(_hwnd, 0, 128, 0x02); // LWA_ALPHA
+
+        NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOW);
+        NativeMethods.SetForegroundWindow(_hwnd);
+        SetCapture(_hwnd);
+    }
+
+    private nint WndProc(nint hwnd, uint msg, nint wParam, nint lParam)
+    {
+        switch (msg)
+        {
+            case WM_LBUTTONDOWN:
+                _startPoint = PointFromLParam(lParam);
+                _currentPoint = _startPoint;
+                _isSelecting = true;
+                _hasSelection = false;
+                InvalidateRect(hwnd, nint.Zero, true);
+                return nint.Zero;
+
+            case WM_MOUSEMOVE:
+                if (_isSelecting)
+                {
+                    _currentPoint = PointFromLParam(lParam);
+                    InvalidateRect(hwnd, nint.Zero, true);
+                }
+                return nint.Zero;
+
+            case WM_LBUTTONUP:
+                if (_isSelecting)
+                {
+                    _currentPoint = PointFromLParam(lParam);
+                    _isSelecting = false;
+                    _hasSelection = true;
+                    FinishSelection();
+                }
+                return nint.Zero;
+
+            case WM_KEYDOWN:
+                if ((int)wParam == VK_ESCAPE)
+                {
+                    Cancel();
+                }
+                return nint.Zero;
+
+            case WM_PAINT:
+                PaintOverlay(hwnd);
+                return nint.Zero;
+
+            case WM_ERASEBKGND:
+                return new nint(1);
+
+            case WM_SETCURSOR:
+                SetCursor(LoadCursor(nint.Zero, 32512)); // IDC_ARROW
+                return new nint(1);
+        }
+
+        return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
+
+    private void PaintOverlay(nint hwnd)
+    {
+        var ps = new PAINTSTRUCT();
+        var hdc = BeginPaint(hwnd, ref ps);
+
+        // Fill with semi-transparent black overlay
+        GetClientRect(hwnd, out var clientRect);
+        var overlayBrush = CreateSolidBrush(0x40000000); // Semi-transparent black
+        FillRect(hdc, ref clientRect, overlayBrush);
+        DeleteObject(overlayBrush);
+
+        if (_isSelecting || _hasSelection)
+        {
+            // Draw selection rectangle: clear the selected area
+            var selRect = GetSelectionRect();
+            if (selRect.Width > 0 && selRect.Height > 0)
+            {
+                // Draw white border around selection
+                var penBrush = CreateSolidBrush(0x00FFFFFF); // White
+                var pen = CreatePen(0, 2, 0x00FFFFFF);
+                var oldPen = SelectObject(hdc, pen);
+                var oldBrush = SelectObject(hdc, GetStockObject(5)); // HOLLOW_BRUSH
+
+                Win32Rectangle(hdc, selRect.Left, selRect.Top, selRect.Right, selRect.Bottom);
+
+                SelectObject(hdc, oldPen);
+                SelectObject(hdc, oldBrush);
+                DeleteObject(pen);
+                DeleteObject(penBrush);
+
+                // Draw size text
+                var sizeText = $"{selRect.Width} × {selRect.Height}";
+                SetTextColor(hdc, 0x00FFFFFF);
+                SetBkMode(hdc, 1); // TRANSPARENT
+                var textRect = new RECT_GDI
+                {
+                    Left = selRect.Left,
+                    Top = selRect.Top - 20,
+                    Right = selRect.Right,
+                    Bottom = selRect.Top
+                };
+                DrawText(hdc, sizeText, -1, ref textRect, 0);
+            }
+        }
+
+        EndPaint(hwnd, ref ps);
+    }
+
+    private RECT_GDI GetSelectionRect()
+    {
+        int left = Math.Min(_startPoint.X, _currentPoint.X);
+        int top = Math.Min(_startPoint.Y, _currentPoint.Y);
+        int right = Math.Max(_startPoint.X, _currentPoint.X);
+        int bottom = Math.Max(_startPoint.Y, _currentPoint.Y);
+        return new RECT_GDI { Left = left, Top = top, Right = right, Bottom = bottom };
+    }
+
+    private void FinishSelection()
+    {
+        var selRect = GetSelectionRect();
+        int width = selRect.Right - selRect.Left;
+        int height = selRect.Bottom - selRect.Top;
+
+        if (width < 10 || height < 10)
+        {
+            // Selection too small — treat as cancel
+            Cancel();
+            return;
+        }
+
+        // Get the virtual screen offset
+        var virtualBounds = ScreenInfo.GetVirtualScreenBounds();
+        int screenX = virtualBounds.Left + selRect.Left;
+        int screenY = virtualBounds.Top + selRect.Top;
+
+        var pt = new NativeMethods.POINT { X = screenX + width / 2, Y = screenY + height / 2 };
+        var hMonitor = NativeMethods.MonitorFromPoint(pt, NativeMethods.MONITOR_DEFAULTTONEAREST);
+
+        var rect = new Rectangle(screenX, screenY, width, height);
+        var region = new CaptureRegion(rect, hMonitor);
+
+        Close();
+        _tcs.TrySetResult(region);
+    }
+
+    private void Cancel()
+    {
+        Close();
+        _tcs.TrySetResult(null);
+    }
+
+    private void Close()
+    {
+        if (_hwnd != nint.Zero)
+        {
+            ReleaseCapture();
+            DestroyWindow(_hwnd);
+            _hwnd = nint.Zero;
+            // Unregister so the next instance can re-register with a fresh WndProc delegate
+            UnregisterClass(ClassName, GetModuleHandle(null));
+        }
+    }
+
+    private static Point PointFromLParam(nint lParam)
+    {
+        return new Point(
+            (short)(lParam.ToInt32() & 0xFFFF),
+            (short)((lParam.ToInt32() >> 16) & 0xFFFF));
+    }
+
+    public void Dispose()
+    {
+        Close();
+        if (_wndProcHandle.IsAllocated)
+            _wndProcHandle.Free();
+    }
+
+    // Win32 imports
+    [StructLayout(LayoutKind.Sequential)]
+    private struct RECT_GDI { public int Left, Top, Right, Bottom; public int Width => Right - Left; public int Height => Bottom - Top; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PAINTSTRUCT
+    {
+        public nint hdc;
+        public bool fErase;
+        public RECT_GDI rcPaint;
+        public bool fRestore;
+        public bool fIncUpdate;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)]
+        public byte[] rgbReserved;
+    }
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct WNDCLASSEX
+    {
+        public int cbSize;
+        public int style;
+        public nint lpfnWndProc;
+        public int cbClsExtra;
+        public int cbWndExtra;
+        public nint hInstance;
+        public nint hIcon;
+        public nint hCursor;
+        public nint hbrBackground;
+        [MarshalAs(UnmanagedType.LPWStr)] public string? lpszMenuName;
+        [MarshalAs(UnmanagedType.LPWStr)] public string lpszClassName;
+        public nint hIconSm;
+    }
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern ushort RegisterClassEx(ref WNDCLASSEX lpWndClass);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern nint CreateWindowEx(int exStyle, string className, string windowName, int style, int x, int y, int w, int h, nint parent, nint menu, nint instance, nint param);
+    [DllImport("user32.dll")] private static extern bool DestroyWindow(nint hWnd);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool UnregisterClass(string lpClassName, nint hInstance);
+    [DllImport("user32.dll", EntryPoint = "DefWindowProcW")] private static extern nint DefWindowProc(nint hWnd, uint msg, nint wParam, nint lParam);
+    [DllImport("user32.dll")] private static extern nint BeginPaint(nint hWnd, ref PAINTSTRUCT lpPaint);
+    [DllImport("user32.dll")] private static extern bool EndPaint(nint hWnd, ref PAINTSTRUCT lpPaint);
+    [DllImport("user32.dll")] private static extern bool InvalidateRect(nint hWnd, nint lpRect, bool bErase);
+    [DllImport("user32.dll")] private static extern bool GetClientRect(nint hWnd, out RECT_GDI lpRect);
+    [DllImport("user32.dll")] private static extern nint SetCapture(nint hWnd);
+    [DllImport("user32.dll")] private static extern bool ReleaseCapture();
+    [DllImport("user32.dll")] private static extern nint LoadCursor(nint hInstance, int lpCursorName);
+    [DllImport("user32.dll")] private static extern nint SetCursor(nint hCursor);
+    [DllImport("user32.dll")] private static extern bool SetLayeredWindowAttributes(nint hwnd, uint crKey, byte bAlpha, uint dwFlags);
+    [DllImport("gdi32.dll")] private static extern nint CreateSolidBrush(uint crColor);
+    [DllImport("gdi32.dll")] private static extern nint CreatePen(int fnPenStyle, int nWidth, uint crColor);
+    [DllImport("gdi32.dll")] private static extern nint SelectObject(nint hdc, nint hObject);
+    [DllImport("gdi32.dll")] private static extern nint GetStockObject(int fnObject);
+    [DllImport("gdi32.dll")] private static extern bool DeleteObject(nint hObject);
+    [DllImport("user32.dll")] private static extern int FillRect(nint hdc, ref RECT_GDI lprc, nint hbr);
+    [DllImport("gdi32.dll", EntryPoint = "Rectangle")] private static extern bool Win32Rectangle(nint hdc, int l, int t, int r, int b);
+    [DllImport("gdi32.dll")] private static extern uint SetTextColor(nint hdc, uint crColor);
+    [DllImport("gdi32.dll")] private static extern int SetBkMode(nint hdc, int iBkMode);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int DrawText(nint hdc, string lpString, int nCount, ref RECT_GDI lpRect, uint uFormat);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern nint GetModuleHandle(string? lpModuleName);
+}

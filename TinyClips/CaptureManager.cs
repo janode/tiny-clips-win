@@ -1,0 +1,456 @@
+using System.Drawing;
+using TinyClips.Capture;
+using TinyClips.Models;
+using TinyClips.Services;
+using TinyClips.Views;
+
+namespace TinyClips;
+
+/// <summary>
+/// Central coordinator for all capture flows.
+/// Owns recorders, writers, and manages the capture-time window lifecycle.
+/// Mirrors the macOS CaptureManager from TinyClipsApp.swift.
+/// </summary>
+public sealed class CaptureManager : IDisposable
+{
+    // MARK: - State
+
+    public bool IsRecording { get; private set; }
+    public event Action<bool>? IsRecordingChanged;
+
+    private VideoRecorder? _videoRecorder;
+    private GifWriter? _gifWriter;
+    private CapturePickerWindow? _pickerWindow;
+    private StartRecordingWindow? _startWindow;
+    private StopRecordingWindow? _stopWindow;
+    private CaptureRegion? _pendingRegion;
+    private readonly HotKeyManager _hotKeyManager = new();
+
+    // MARK: - Initialization
+
+    public CaptureManager()
+    {
+        _hotKeyManager.Initialize();
+        RegisterHotKeys();
+    }
+
+    private void RegisterHotKeys()
+    {
+        var s = CaptureSettings.Instance;
+        _hotKeyManager.RegisterCaptureHotKeys(
+            screenshotVk: s.ScreenshotHotKeyVk, screenshotMod: s.ScreenshotHotKeyMod,
+            onScreenshot: () => { if (!IsRecording) TakeScreenshot(); },
+            videoVk: s.VideoHotKeyVk, videoMod: s.VideoHotKeyMod,
+            onRecordVideo: () => { if (!IsRecording) StartVideoRecording(); },
+            gifVk: s.GifHotKeyVk, gifMod: s.GifHotKeyMod,
+            onRecordGif: () => { if (!IsRecording) StartGifRecording(); });
+
+        UpdateStopHotKey();
+    }
+
+    public void ReloadHotKeys() => RegisterHotKeys();
+
+    private void SetRecording(bool value)
+    {
+        IsRecording = value;
+        IsRecordingChanged?.Invoke(value);
+        UpdateStopHotKey();
+    }
+
+    private void UpdateStopHotKey()
+    {
+        if (IsRecording)
+            _hotKeyManager.RegisterStopHotKey(StopRecording);
+        else
+            _hotKeyManager.UnregisterStopHotKey();
+    }
+
+    // MARK: - Screenshot Flow
+
+    public void TakeScreenshot()
+    {
+        _ = TakeScreenshotAsync();
+    }
+
+    private async Task TakeScreenshotAsync()
+    {
+        PrepareForNewCapture();
+
+        if (!PermissionManager.IsCaptureSupported())
+        {
+            NotificationService.Instance.ShowErrorNotification("Screen capture not supported on this device.");
+            return;
+        }
+
+        ShowPicker(CaptureType.Screenshot);
+    }
+
+    private async Task PerformScreenshotCapture(CapturePickerMode mode, bool countdownEnabled, int countdownDuration)
+    {
+        CaptureRegion? region = null;
+
+        switch (mode)
+        {
+            case CapturePickerMode.Region:
+                region = await RegionSelectorWindow.SelectRegionAsync();
+                if (region == null) { ShowPicker(CaptureType.Screenshot); return; }
+                break;
+
+            case CapturePickerMode.Screen:
+                region = CaptureRegion.FullScreenAtCursor();
+                break;
+
+            case CapturePickerMode.Window:
+                // For v1, fall back to full screen capture at cursor
+                region = CaptureRegion.FullScreenAtCursor();
+                break;
+        }
+
+        if (region == null) return;
+
+        if (countdownEnabled && countdownDuration > 0)
+        {
+            await CountdownWindow.RunCountdownAsync(countdownDuration);
+        }
+
+        try
+        {
+            var settings = CaptureSettings.Instance;
+            string path = SaveService.Instance.GeneratePath(CaptureType.Screenshot);
+            await ScreenshotCapture.CaptureRegionAsync(region, path);
+            SaveService.Instance.HandleSavedFile(path, CaptureType.Screenshot);
+        }
+        catch (Exception ex)
+        {
+            NotificationService.Instance.ShowErrorNotification($"Screenshot failed: {ex.Message}");
+        }
+
+        // Reopen picker for additional captures
+        ShowPicker(CaptureType.Screenshot);
+    }
+
+    // MARK: - Video Flow
+
+    public void StartVideoRecording()
+    {
+        _ = StartVideoRecordingAsync();
+    }
+
+    private async Task StartVideoRecordingAsync()
+    {
+        PrepareForNewCapture();
+
+        if (!PermissionManager.IsCaptureSupported())
+        {
+            NotificationService.Instance.ShowErrorNotification("Screen capture not supported on this device.");
+            return;
+        }
+
+        ShowPicker(CaptureType.Video);
+    }
+
+    private void BeginVideoRecording(CaptureRegion region, bool countdownEnabled, int countdownDuration)
+    {
+        _pendingRegion = region;
+
+        var startWin = new StartRecordingWindow(CaptureType.Video);
+        startWin.OnStart = () =>
+        {
+            _startWindow = null;
+            _ = DoVideoRecording(region, countdownEnabled, countdownDuration);
+        };
+        startWin.OnCancelled = () =>
+        {
+            _startWindow = null;
+            _pendingRegion = null;
+        };
+        _startWindow = startWin;
+        startWin.Activate();
+    }
+
+    private async Task DoVideoRecording(CaptureRegion region, bool countdownEnabled, int countdownDuration)
+    {
+        if (countdownEnabled && countdownDuration > 0)
+        {
+            await CountdownWindow.RunCountdownAsync(countdownDuration);
+        }
+
+        try
+        {
+            var settings = CaptureSettings.Instance;
+            string path = SaveService.Instance.GeneratePath(CaptureType.Video);
+            var recorder = new VideoRecorder();
+            _videoRecorder = recorder;
+            SetRecording(true);
+
+            recorder.OnElapsedChanged = elapsed =>
+            {
+                App.Current.MainDispatcherQueue?.TryEnqueue(() =>
+                    _stopWindow?.UpdateElapsed(elapsed));
+            };
+
+            await recorder.StartAsync(region.ScreenRect, path, settings.VideoFrameRate);
+            ShowStopPanel();
+        }
+        catch (Exception ex)
+        {
+            SetRecording(false);
+            NotificationService.Instance.ShowErrorNotification($"Video recording failed: {ex.Message}");
+        }
+    }
+
+    // MARK: - GIF Flow
+
+    public void StartGifRecording()
+    {
+        _ = StartGifRecordingAsync();
+    }
+
+    private async Task StartGifRecordingAsync()
+    {
+        PrepareForNewCapture();
+
+        if (!PermissionManager.IsCaptureSupported())
+        {
+            NotificationService.Instance.ShowErrorNotification("Screen capture not supported on this device.");
+            return;
+        }
+
+        ShowPicker(CaptureType.Gif);
+    }
+
+    private void BeginGifRecording(CaptureRegion region, bool countdownEnabled, int countdownDuration)
+    {
+        _pendingRegion = region;
+
+        var startWin = new StartRecordingWindow(CaptureType.Gif);
+        startWin.OnStart = () =>
+        {
+            _startWindow = null;
+            _ = DoGifRecording(region, countdownEnabled, countdownDuration);
+        };
+        startWin.OnCancelled = () =>
+        {
+            _startWindow = null;
+            _pendingRegion = null;
+        };
+        _startWindow = startWin;
+        startWin.Activate();
+    }
+
+    private async Task DoGifRecording(CaptureRegion region, bool countdownEnabled, int countdownDuration)
+    {
+        if (countdownEnabled && countdownDuration > 0)
+        {
+            await CountdownWindow.RunCountdownAsync(countdownDuration);
+        }
+
+        try
+        {
+            string path = SaveService.Instance.GeneratePath(CaptureType.Gif);
+            var writer = new GifWriter();
+            _gifWriter = writer;
+            SetRecording(true);
+
+            writer.OnElapsedChanged = elapsed =>
+            {
+                App.Current.MainDispatcherQueue?.TryEnqueue(() =>
+                    _stopWindow?.UpdateElapsed(elapsed));
+            };
+
+            await writer.StartAsync(region.ScreenRect, path);
+            ShowStopPanel();
+        }
+        catch (Exception ex)
+        {
+            SetRecording(false);
+            NotificationService.Instance.ShowErrorNotification($"GIF recording failed: {ex.Message}");
+        }
+    }
+
+    // MARK: - Stop Recording
+
+    public void StopRecording()
+    {
+        _ = StopRecordingFlow();
+    }
+
+    private async Task StopRecordingFlow()
+    {
+        if (_videoRecorder is { } recorder)
+        {
+            try
+            {
+                string? path = await recorder.StopAsync();
+                if (path != null)
+                    SaveService.Instance.HandleSavedFile(path, CaptureType.Video);
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Instance.ShowErrorNotification($"Video save failed: {ex.Message}");
+            }
+            _videoRecorder = null;
+        }
+
+        if (_gifWriter is { } writer)
+        {
+            try
+            {
+                string path = await writer.StopAsync();
+                SaveService.Instance.HandleSavedFile(path, CaptureType.Gif);
+            }
+            catch (Exception ex)
+            {
+                NotificationService.Instance.ShowErrorNotification($"GIF save failed: {ex.Message}");
+            }
+            _gifWriter = null;
+        }
+
+        SetRecording(false);
+        DismissStopPanel();
+        _pendingRegion = null;
+    }
+
+    // MARK: - Picker
+
+    private void ShowPicker(CaptureType type)
+    {
+        DismissPicker();
+        var settings = CaptureSettings.Instance;
+
+        var picker = new CapturePickerWindow(
+            type,
+            settings.IsCountdownEnabled(type),
+            settings.CountdownDuration(type));
+
+        picker.OnCapture = (mode, countdownEnabled, countdownDuration) =>
+        {
+            DismissPicker();
+            _ = HandlePickerResult(type, mode, countdownEnabled, countdownDuration);
+        };
+        picker.OnCancelled = () => DismissPicker();
+
+        _pickerWindow = picker;
+        picker.Activate();
+    }
+
+    private async Task HandlePickerResult(CaptureType type, CapturePickerMode mode, bool countdownEnabled, int countdownDuration)
+    {
+        CaptureRegion? region = null;
+
+        if (type == CaptureType.Screenshot)
+        {
+            await PerformScreenshotCapture(mode, countdownEnabled, countdownDuration);
+            return;
+        }
+
+        // Video/GIF: get region first
+        switch (mode)
+        {
+            case CapturePickerMode.Region:
+                region = await RegionSelectorWindow.SelectRegionAsync();
+                if (region == null) { ShowPicker(type); return; }
+                break;
+
+            case CapturePickerMode.Screen:
+                region = CaptureRegion.FullScreenAtCursor();
+                break;
+
+            case CapturePickerMode.Window:
+                region = CaptureRegion.FullScreenAtCursor();
+                break;
+        }
+
+        if (region == null) return;
+
+        switch (type)
+        {
+            case CaptureType.Video:
+                BeginVideoRecording(region, countdownEnabled, countdownDuration);
+                break;
+            case CaptureType.Gif:
+                BeginGifRecording(region, countdownEnabled, countdownDuration);
+                break;
+        }
+    }
+
+    private void DismissPicker()
+    {
+        try { _pickerWindow?.Close(); } catch { }
+        _pickerWindow = null;
+    }
+
+    // MARK: - Stop Panel
+
+    private void ShowStopPanel()
+    {
+        DismissStopPanel();
+        var panel = new StopRecordingWindow();
+        panel.OnStop = StopRecording;
+        _stopWindow = panel;
+        panel.Activate();
+        panel.StartTimer();
+    }
+
+    private void DismissStopPanel()
+    {
+        try { _stopWindow?.Close(); } catch { }
+        _stopWindow = null;
+    }
+
+    // MARK: - Cleanup
+
+    private void PrepareForNewCapture()
+    {
+        DismissPicker();
+        try { _startWindow?.Close(); } catch { }
+        _startWindow = null;
+        _pendingRegion = null;
+
+        if (IsRecording)
+        {
+            _ = StopRecordingFlow();
+        }
+        else
+        {
+            DismissStopPanel();
+        }
+    }
+
+    // MARK: - Settings & Onboarding
+
+    private SettingsWindow? _settingsWindow;
+
+    public void ShowSettings()
+    {
+        if (_settingsWindow != null)
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+        _settingsWindow = new SettingsWindow();
+        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.Activate();
+    }
+
+    public void ShowOnboarding()
+    {
+        // TODO: Implement onboarding wizard
+        // For now, mark as completed
+        CaptureSettings.Instance.HasCompletedOnboarding = true;
+        CaptureSettings.Instance.Save();
+    }
+
+    private void ShowOnboardingIfNeeded()
+    {
+        if (CaptureSettings.Instance.HasCompletedOnboarding) return;
+        // TODO: Show onboarding wizard on first launch
+        CaptureSettings.Instance.HasCompletedOnboarding = true;
+        CaptureSettings.Instance.Save();
+    }
+
+    public void Dispose()
+    {
+        _hotKeyManager.Dispose();
+    }
+}
