@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TinyClips for Windows — Screen Capture Made Simple</title>
+  <meta name="description" content="A polished Windows 11 system-tray app for screenshots, video, and GIF capture. Built with WinUI 3 and .NET 10.">
+  <style>
+    :root {
+      --accent: #0078d4;
+      --accent-dark: #106ebe;
+      --bg: #f5f5f5;
+      --card-bg: #ffffff;
+      --text: #1a1a1a;
+      --text-muted: #666;
+      --radius: 12px;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1a1a;
+        --card-bg: #2a2a2a;
+        --text: #e8e8e8;
+        --text-muted: #aaa;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 60px;
+      background: linear-gradient(135deg, #0078d4 0%, #50e6ff 100%);
+      color: white;
+    }
+
+    .hero img {
+      width: 120px;
+      height: 120px;
+      border-radius: 24px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      margin-bottom: 24px;
+    }
+
+    .hero h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+
+    .hero p {
+      font-size: 1.2rem;
+      opacity: 0.9;
+      max-width: 600px;
+      margin: 0 auto 32px;
+    }
+
+    .hero-buttons {
+      display: flex;
+      gap: 16px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+
+    .btn-primary {
+      background: white;
+      color: var(--accent);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.15);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.4);
+    }
+
+    /* Features */
+    .features {
+      padding: 80px 0;
+    }
+
+    .features h2 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 48px;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 32px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    .feature-icon {
+      font-size: 2rem;
+      margin-bottom: 12px;
+    }
+
+    .feature-card h3 {
+      font-size: 1.15rem;
+      margin-bottom: 8px;
+    }
+
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* Install */
+    .install {
+      padding: 80px 0;
+    }
+
+    .install h2 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 16px;
+    }
+
+    .install .subtitle {
+      text-align: center;
+      color: var(--text-muted);
+      margin-bottom: 48px;
+    }
+
+    .install-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .step {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 32px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    .step-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      background: var(--accent);
+      color: white;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 16px;
+    }
+
+    .step h3 {
+      margin-bottom: 8px;
+    }
+
+    .step p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .step code {
+      display: block;
+      background: var(--bg);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      margin-top: 8px;
+      word-break: break-all;
+    }
+
+    /* Shortcuts */
+    .shortcuts {
+      padding: 80px 0;
+    }
+
+    .shortcuts h2 {
+      text-align: center;
+      font-size: 2rem;
+      margin-bottom: 48px;
+    }
+
+    .shortcut-table {
+      max-width: 500px;
+      margin: 0 auto;
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .shortcut-table th,
+    .shortcut-table td {
+      padding: 12px 16px;
+      text-align: left;
+      border-bottom: 1px solid rgba(128,128,128,0.15);
+    }
+
+    .shortcut-table th {
+      font-weight: 600;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    kbd {
+      background: var(--card-bg);
+      border: 1px solid rgba(128,128,128,0.2);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 40px 24px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <section class="hero">
+    <img src="icon.png" alt="TinyClips icon">
+    <h1>TinyClips for Windows</h1>
+    <p>Screen capture made simple. Screenshots, video, and GIF — all from your system tray.</p>
+    <div class="hero-buttons">
+      <a href="https://github.com/janode/tiny-clips-win/releases/latest" class="btn btn-primary">
+        ⬇ Download Latest
+      </a>
+      <a href="https://github.com/janode/tiny-clips-win" class="btn btn-secondary">
+        View on GitHub
+      </a>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features">
+    <div class="container">
+      <h2>Features</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📸</div>
+          <h3>Screenshots</h3>
+          <p>Capture a region, full screen, or window. Saves as PNG or JPEG with instant clipboard copy.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🎬</div>
+          <h3>Video Recording</h3>
+          <p>Record any region or your full screen to H.264 MP4. Built-in timer and stop controls.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">✨</div>
+          <h3>GIF Capture</h3>
+          <p>Record animated GIFs with configurable frame rate. Perfect for quick demos and bug reports.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⌨️</div>
+          <h3>Global Hotkeys</h3>
+          <p>Trigger captures from any app. Fully customizable keyboard shortcuts in settings.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">🔔</div>
+          <h3>Toast Notifications</h3>
+          <p>Get notified when captures complete. Click to open the file or its location.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">⚙️</div>
+          <h3>Highly Configurable</h3>
+          <p>Save location, file naming templates, countdown timer, image format, GIF framerate, and more.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Install -->
+  <section class="install">
+    <div class="container">
+      <h2>Installation</h2>
+      <p class="subtitle">TinyClips runs as a self-contained app — no installer required.</p>
+      <div class="install-steps">
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>Download</h3>
+          <p>Grab the latest release for your architecture from GitHub Releases.</p>
+          <code>TinyClips-x64.zip &nbsp; or &nbsp; TinyClips-arm64.zip</code>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>Extract</h3>
+          <p>Unzip to any folder, for example:</p>
+          <code>C:\Program Files\TinyClips\</code>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>Run</h3>
+          <p>Launch <strong>TinyClips.exe</strong>. It appears in your system tray — right-click to capture.</p>
+          <code>Enable "Launch at login" in Settings → General</code>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Shortcuts -->
+  <section class="shortcuts">
+    <div class="container">
+      <h2>Keyboard Shortcuts</h2>
+      <table class="shortcut-table">
+        <thead>
+          <tr><th>Action</th><th>Shortcut</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Screenshot</td><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>5</kbd></td></tr>
+          <tr><td>Record Video</td><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>6</kbd></td></tr>
+          <tr><td>Record GIF</td><td><kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>7</kbd></td></tr>
+          <tr><td>Stop Recording</td><td><kbd>Ctrl</kbd> + <kbd>.</kbd></td></tr>
+          <tr><td>Region mode</td><td><kbd>R</kbd></td></tr>
+          <tr><td>Screen mode</td><td><kbd>S</kbd></td></tr>
+          <tr><td>Window mode</td><td><kbd>W</kbd></td></tr>
+          <tr><td>Cancel</td><td><kbd>Esc</kbd></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <p>
+      Built with WinUI 3, .NET 10, and the Windows App SDK.<br>
+      Inspired by <a href="https://github.com/jamesmontemagno/tiny-clips-mac">TinyClips for Mac</a> by James Montemagno.<br>
+      <a href="https://github.com/janode/tiny-clips-win">GitHub</a> · 
+      <a href="https://github.com/janode/tiny-clips-win/releases">Releases</a>
+    </p>
+  </footer>
+
+</body>
+</html>
