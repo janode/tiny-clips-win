@@ -142,9 +142,6 @@ public sealed class GifWriter : IDisposable
             using var gif = new Image<Rgba32>(destWidth, destHeight);
             gif.Metadata.GetGifMetadata().RepeatCount = 0; // Loop forever
 
-            // Remove the default first frame
-            gif.Frames.RemoveFrame(0);
-
             foreach (var (pixels, w, h) in _frames)
             {
                 using var frame = BgraToImageSharp(pixels, w, h);
@@ -157,6 +154,9 @@ public sealed class GifWriter : IDisposable
                 var addedFrame = gif.Frames.AddFrame(frame.Frames.RootFrame);
                 addedFrame.Metadata.GetGifMetadata().FrameDelay = frameDelay;
             }
+
+            // Remove the default placeholder frame created by new Image<>(...)
+            gif.Frames.RemoveFrame(0);
 
             var dir = Path.GetDirectoryName(_outputPath);
             if (!string.IsNullOrEmpty(dir))

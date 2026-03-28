@@ -47,7 +47,7 @@ public sealed partial class StopRecordingWindow : Window
     public void StartTimer()
     {
         _startTime = DateTime.Now;
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
         _timer.Tick += OnTimerTick;
         _timer.Start();
 
@@ -56,7 +56,7 @@ public sealed partial class StopRecordingWindow : Window
 
     public void UpdateElapsed(TimeSpan elapsed)
     {
-        TimerText.Text = elapsed.ToString(@"mm\:ss");
+        TimerText.Text = elapsed.ToString(@"mm\:ss\.f");
     }
 
     private void ConfigureWindow()
