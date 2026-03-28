@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        platform: [x64, arm64]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Publish self-contained
+        run: >
+          dotnet publish TinyClips/TinyClips.csproj
+          -c Release
+          -p:Platform=${{ matrix.platform }}
+          -r win-${{ matrix.platform }}
+          --self-contained true
+          -p:PublishSingleFile=false
+          -o publish/${{ matrix.platform }}
+
+      - name: Create zip
+        run: Compress-Archive -Path publish/${{ matrix.platform }}/* -DestinationPath TinyClips-${{ matrix.platform }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TinyClips-${{ matrix.platform }}
+          path: TinyClips-${{ matrix.platform }}.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download x64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: TinyClips-x64
+
+      - name: Download arm64 artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: TinyClips-arm64
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            TinyClips-x64.zip
+            TinyClips-arm64.zip

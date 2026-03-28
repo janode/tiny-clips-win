@@ -1,10 +1,8 @@
 # TinyClips for Windows
 
-<p align="center">
-  <img src="TinyClips/Assets/tinyclips-store-icon.png" alt="TinyClips icon" width="128">
-</p>
-
 A polished Windows 11 system-tray app for screen capture — screenshots, video (MP4), and GIF. Built with WinUI 3, .NET 10, and the Windows App SDK.
+
+> Inspired by [TinyClips for Mac](https://github.com/jamesmontemagno/tiny-clips-mac) by James Montemagno.
 
 ## Features
 
