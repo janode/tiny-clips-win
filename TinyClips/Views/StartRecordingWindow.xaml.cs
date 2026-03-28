@@ -56,13 +56,21 @@ public sealed partial class StartRecordingWindow : Window
         int h = (int)(52 * scale);
         AppWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
 
-        // Center near the top of primary display
-        var area = DisplayArea.Primary;
-        if (area != null)
+        // Restore saved position or center near the top of primary display
+        var settings = CaptureSettings.Instance;
+        if (settings.StartPanelPositionX.HasValue && settings.StartPanelPositionY.HasValue)
         {
-            int cx = area.WorkArea.X + (area.WorkArea.Width - w) / 2;
-            int cy = area.WorkArea.Y + (int)(60 * scale);
-            AppWindow.Move(new Windows.Graphics.PointInt32(cx, cy));
+            AppWindow.Move(new Windows.Graphics.PointInt32(settings.StartPanelPositionX.Value, settings.StartPanelPositionY.Value));
+        }
+        else
+        {
+            var area = DisplayArea.Primary;
+            if (area != null)
+            {
+                int cx = area.WorkArea.X + (area.WorkArea.Width - w) / 2;
+                int cy = area.WorkArea.Y + (int)(60 * scale);
+                AppWindow.Move(new Windows.Graphics.PointInt32(cx, cy));
+            }
         }
     }
 
@@ -101,6 +109,12 @@ public sealed partial class StartRecordingWindow : Window
 
     private void OnWindowClosed(object sender, WindowEventArgs e)
     {
+        var pos = AppWindow.Position;
+        var settings = CaptureSettings.Instance;
+        settings.StartPanelPositionX = pos.X;
+        settings.StartPanelPositionY = pos.Y;
+        settings.Save();
+
         if (!_didComplete)
         {
             OnCancelled?.Invoke();

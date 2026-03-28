@@ -42,7 +42,14 @@ public sealed partial class CapturePickerWindow : Window
         int w = (int)(700 * scale);
         int h = (int)(68 * scale);
         AppWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
-        CenterAtTopOfScreen(hwnd, scale, w);
+
+        var settings = CaptureSettings.Instance;
+        if (settings.PickerPositionX.HasValue && settings.PickerPositionY.HasValue)
+            AppWindow.Move(new Windows.Graphics.PointInt32(settings.PickerPositionX.Value, settings.PickerPositionY.Value));
+        else
+            CenterAtTopOfScreen(hwnd, scale, w);
+
+        Closed += OnWindowClosed;
     }
 
     private void ConfigureWindowStyle(nint hwnd)
@@ -159,6 +166,20 @@ public sealed partial class CapturePickerWindow : Window
     }
 
     // MARK: - Completion
+
+    private void SavePosition()
+    {
+        var pos = AppWindow.Position;
+        var settings = CaptureSettings.Instance;
+        settings.PickerPositionX = pos.X;
+        settings.PickerPositionY = pos.Y;
+        settings.Save();
+    }
+
+    private void OnWindowClosed(object sender, WindowEventArgs e)
+    {
+        SavePosition();
+    }
 
     private void FinishCapture(CapturePickerMode mode)
     {

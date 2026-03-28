@@ -84,13 +84,21 @@ public sealed partial class StopRecordingWindow : Window
         int h = (int)(52 * scale);
         AppWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
 
-        // Position near top-right of primary display
-        var area = DisplayArea.Primary;
-        if (area != null)
+        // Restore saved position or default to top-right
+        var settings = Models.CaptureSettings.Instance;
+        if (settings.StopPanelPositionX.HasValue && settings.StopPanelPositionY.HasValue)
         {
-            int px = area.WorkArea.X + area.WorkArea.Width - w - (int)(20 * scale);
-            int py = area.WorkArea.Y + (int)(20 * scale);
-            AppWindow.Move(new Windows.Graphics.PointInt32(px, py));
+            AppWindow.Move(new Windows.Graphics.PointInt32(settings.StopPanelPositionX.Value, settings.StopPanelPositionY.Value));
+        }
+        else
+        {
+            var area = DisplayArea.Primary;
+            if (area != null)
+            {
+                int px = area.WorkArea.X + area.WorkArea.Width - w - (int)(20 * scale);
+                int py = area.WorkArea.Y + (int)(20 * scale);
+                AppWindow.Move(new Windows.Graphics.PointInt32(px, py));
+            }
         }
     }
 
@@ -114,6 +122,12 @@ public sealed partial class StopRecordingWindow : Window
 
     private void OnWindowClosed(object sender, WindowEventArgs e)
     {
+        var pos = AppWindow.Position;
+        var settings = Models.CaptureSettings.Instance;
+        settings.StopPanelPositionX = pos.X;
+        settings.StopPanelPositionY = pos.Y;
+        settings.Save();
+
         _timer?.Stop();
         if (!_didComplete)
         {

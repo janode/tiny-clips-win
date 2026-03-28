@@ -32,6 +32,8 @@ public sealed class RegionSelectorWindow : IDisposable
     private const uint WM_SETCURSOR = 0x0020;
     private const int VK_ESCAPE = 0x1B;
     private const string ClassName = "TinyClips_RegionSelector";
+    // Magenta used as the transparent color key — this exact color becomes fully see-through
+    private const uint ColorKey = 0x00FF00FF; // BGR magenta
 
     /// <summary>
     /// Show the region selector and wait for the user to select a region.
@@ -72,8 +74,9 @@ public sealed class RegionSelectorWindow : IDisposable
             bounds.Left, bounds.Top, bounds.Width, bounds.Height,
             nint.Zero, nint.Zero, hInstance, nint.Zero);
 
-        // Make the window semi-transparent (alpha 128 = ~50%)
-        SetLayeredWindowAttributes(_hwnd, 0, 128, 0x02); // LWA_ALPHA
+        // Color key (magenta) = fully transparent; alpha = dim the rest
+        // LWA_COLORKEY (0x01) | LWA_ALPHA (0x02)
+        SetLayeredWindowAttributes(_hwnd, ColorKey, 160, 0x01 | 0x02);
 
         NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOW);
         NativeMethods.SetForegroundWindow(_hwnd);
@@ -137,43 +140,51 @@ public sealed class RegionSelectorWindow : IDisposable
         var ps = new PAINTSTRUCT();
         var hdc = BeginPaint(hwnd, ref ps);
 
-        // Fill with semi-transparent black overlay
+        // Fill entire window with black (dimmed by the layered alpha)
         GetClientRect(hwnd, out var clientRect);
-        var overlayBrush = CreateSolidBrush(0x40000000); // Semi-transparent black
-        FillRect(hdc, ref clientRect, overlayBrush);
-        DeleteObject(overlayBrush);
+        var blackBrush = CreateSolidBrush(0x00000000);
+        FillRect(hdc, ref clientRect, blackBrush);
+        DeleteObject(blackBrush);
 
         if (_isSelecting || _hasSelection)
         {
-            // Draw selection rectangle: clear the selected area
             var selRect = GetSelectionRect();
             if (selRect.Width > 0 && selRect.Height > 0)
             {
-                // Draw white border around selection
-                var penBrush = CreateSolidBrush(0x00FFFFFF); // White
+                // Fill selection area with color key → fully transparent (clear view)
+                var keyBrush = CreateSolidBrush(ColorKey);
+                FillRect(hdc, ref selRect, keyBrush);
+                DeleteObject(keyBrush);
+
+                // White border around selection
                 var pen = CreatePen(0, 2, 0x00FFFFFF);
                 var oldPen = SelectObject(hdc, pen);
                 var oldBrush = SelectObject(hdc, GetStockObject(5)); // HOLLOW_BRUSH
-
                 Win32Rectangle(hdc, selRect.Left, selRect.Top, selRect.Right, selRect.Bottom);
-
                 SelectObject(hdc, oldPen);
                 SelectObject(hdc, oldBrush);
                 DeleteObject(pen);
-                DeleteObject(penBrush);
 
-                // Draw size text
-                var sizeText = $"{selRect.Width} × {selRect.Height}";
+                // Dimensions label
+                var sizeText = $"{selRect.Width} \u00d7 {selRect.Height}";
+                var font = CreateFont(16, 0, 0, 0, 700, 0, 0, 0, 1, 0, 0, 4, 0, "Segoe UI");
+                var oldFont = SelectObject(hdc, font);
                 SetTextColor(hdc, 0x00FFFFFF);
                 SetBkMode(hdc, 1); // TRANSPARENT
+
+                // Position label above selection, or below if too close to top
+                int labelY = selRect.Top - 24;
+                if (labelY < 4) labelY = selRect.Bottom + 4;
                 var textRect = new RECT_GDI
                 {
                     Left = selRect.Left,
-                    Top = selRect.Top - 20,
-                    Right = selRect.Right,
-                    Bottom = selRect.Top
+                    Top = labelY,
+                    Right = selRect.Left + 200,
+                    Bottom = labelY + 20
                 };
                 DrawText(hdc, sizeText, -1, ref textRect, 0);
+                SelectObject(hdc, oldFont);
+                DeleteObject(font);
             }
         }
 
@@ -306,5 +317,6 @@ public sealed class RegionSelectorWindow : IDisposable
     [DllImport("gdi32.dll")] private static extern uint SetTextColor(nint hdc, uint crColor);
     [DllImport("gdi32.dll")] private static extern int SetBkMode(nint hdc, int iBkMode);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int DrawText(nint hdc, string lpString, int nCount, ref RECT_GDI lpRect, uint uFormat);
+    [DllImport("gdi32.dll", CharSet = CharSet.Unicode)] private static extern nint CreateFont(int nHeight, int nWidth, int nEscapement, int nOrientation, int fnWeight, uint fdwItalic, uint fdwUnderline, uint fdwStrikeOut, uint fdwCharSet, uint fdwOutputPrecision, uint fdwClipPrecision, uint fdwQuality, uint fdwPitchAndFamily, string lpszFace);
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] private static extern nint GetModuleHandle(string? lpModuleName);
 }

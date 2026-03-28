@@ -1,3 +1,6 @@
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using H.NotifyIcon;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -15,6 +18,8 @@ public partial class App : Application
     private TaskbarIcon? _trayIcon;
     private CaptureManager? _captureManager;
     private static Mutex? _singleInstanceMutex;
+    private Uri? _normalIconUri;
+    private Uri? _recordingIconUri;
 
     // Hidden main window required by WinUI 3 — never shown.
     private Window? _hiddenWindow;
@@ -156,13 +161,14 @@ public partial class App : Application
         contextMenu.Items.Add(separator2);
         contextMenu.Items.Add(quitItem);
 
-        var iconUri = new Uri(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "TinyClips.ico"));
+        _normalIconUri = new Uri(System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "TinyClips.ico"));
+        _recordingIconUri = CreateRecordingIcon();
         _trayIcon = new TaskbarIcon
         {
             ToolTipText = "TinyClips — Screen Capture",
             ContextMenuMode = ContextMenuMode.PopupMenu,
             NoLeftClickDelay = true,
-            IconSource = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(iconUri)
+            IconSource = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(_normalIconUri)
         };
         _trayIcon.ContextFlyout = contextMenu;
         _trayIcon.ForceCreate();
@@ -175,6 +181,52 @@ public partial class App : Application
         _trayIcon.ToolTipText = isRecording
             ? "TinyClips — Recording…"
             : "TinyClips — Screen Capture";
+
+        var uri = isRecording ? _recordingIconUri : _normalIconUri;
+        if (uri != null)
+            _trayIcon.IconSource = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(uri);
+    }
+
+    /// <summary>
+    /// Generates a recording icon by overlaying a red dot on the normal tray icon.
+    /// Returns a file:// URI pointing to the generated icon in a temp location.
+    /// </summary>
+    private Uri? CreateRecordingIcon()
+    {
+        try
+        {
+            var icoPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "TinyClips.ico");
+            using var icon = new Icon(icoPath, 32, 32);
+            using var bmp = icon.ToBitmap();
+            using var g = Graphics.FromImage(bmp);
+
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            int dotSize = bmp.Width / 3;
+            int x = bmp.Width - dotSize - 1;
+            int y = bmp.Height - dotSize - 1;
+
+            // White outline for visibility
+            using var outline = new SolidBrush(Color.White);
+            g.FillEllipse(outline, x - 1, y - 1, dotSize + 2, dotSize + 2);
+
+            // Red dot
+            using var red = new SolidBrush(Color.FromArgb(255, 59, 48));
+            g.FillEllipse(red, x, y, dotSize, dotSize);
+
+            var tempPath = System.IO.Path.Combine(
+                System.IO.Path.GetTempPath(), "TinyClips_recording.ico");
+
+            // Save as .ico via converting back from bitmap
+            using var stream = new System.IO.FileStream(tempPath, System.IO.FileMode.Create);
+            using var recordingIcon = System.Drawing.Icon.FromHandle(bmp.GetHicon());
+            recordingIcon.Save(stream);
+
+            return new Uri(tempPath);
+        }
+        catch
+        {
+            return _normalIconUri;
+        }
     }
 
     public void Quit()

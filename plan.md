@@ -83,10 +83,12 @@
 ## Phase 8: Distribution & Packaging
 
 - [ ] MSIX packaging for Microsoft Store submission
-- [ ] Unpackaged self-contained build for GitHub Releases / direct download
-- [ ] GitHub Actions CI: build both variants on push/PR
+- [x] ~~Unpackaged self-contained build for GitHub Releases / direct download~~
+- [x] ~~GitHub Actions CI: build x64+arm64, Debug+Release matrix on push/PR to main~~
+- [x] ~~GitHub Actions Release: tag-triggered workflow creates GitHub Release with x64+arm64 zips~~
+- [x] ~~GitHub Pages site with install guide, features, and keyboard shortcuts~~
 - [ ] Auto-update checker for direct builds (GitHub Releases version compare)
-- [ ] App icon — `.ico` with 16/32/48/256 px layers
+- [x] ~~App icon — `.ico` with 16/24/32/48/64/256 px layers~~
 - [ ] Installer / MSIX signing
 
 ---
@@ -104,7 +106,7 @@
 | Microphone recording | Separate audio input mixed into video |
 | Window capture | True window-only capture via `GraphicsCapturePicker` (currently falls back to fullscreen) |
 | System audio in video | WASAPI loopback capture |
-| Custom tray icon | Proper `.ico` icon instead of generated text |
+| ~~Custom tray icon~~ | ~~Done — multi-size `.ico` with 16–256 px layers~~ |
 | Sparkle-equivalent auto-update | For direct-distribution builds |
 
 ---

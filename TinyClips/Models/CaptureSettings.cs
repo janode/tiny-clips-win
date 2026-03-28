@@ -66,6 +66,15 @@ public sealed class CaptureSettings
     public int GifHotKeyVk { get; set; } = 0x37; // VK_7
     public int GifHotKeyMod { get; set; } = 0x0007;
 
+    // MARK: - Panel Positions (null = use default centering)
+
+    public int? PickerPositionX { get; set; }
+    public int? PickerPositionY { get; set; }
+    public int? StartPanelPositionX { get; set; }
+    public int? StartPanelPositionY { get; set; }
+    public int? StopPanelPositionX { get; set; }
+    public int? StopPanelPositionY { get; set; }
+
     // MARK: - State
 
     public bool HasCompletedOnboarding { get; set; } = false;
@@ -138,6 +147,12 @@ public sealed class CaptureSettings
         VideoHotKeyMod = fresh.VideoHotKeyMod;
         GifHotKeyVk = fresh.GifHotKeyVk;
         GifHotKeyMod = fresh.GifHotKeyMod;
+        PickerPositionX = fresh.PickerPositionX;
+        PickerPositionY = fresh.PickerPositionY;
+        StartPanelPositionX = fresh.StartPanelPositionX;
+        StartPanelPositionY = fresh.StartPanelPositionY;
+        StopPanelPositionX = fresh.StopPanelPositionX;
+        StopPanelPositionY = fresh.StopPanelPositionY;
         HasCompletedOnboarding = false;
         Save();
     }

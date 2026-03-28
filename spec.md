@@ -12,8 +12,8 @@
 - [x] ~~App runs as system tray icon with no taskbar window~~
 - [x] ~~Context menu: Screenshot…, Record Video…, Record GIF…, separator, Settings…, separator, Quit~~
 - [x] ~~Tray tooltip changes to "Recording…" during active capture~~
-- [ ] Tray icon changes color/style to red during active recording
-- [ ] Custom app icon (`.ico` with 16/32/48/256 px layers)
+- [x] ~~Tray icon changes color/style to red during active recording~~
+- [x] ~~Custom app icon (`.ico` with 16/32/48/256 px layers)~~
 
 ### 1.2 Single Instance
 - [x] ~~Only one instance of TinyClips can run at a time (named Mutex)~~
@@ -50,8 +50,8 @@
 - [x] ~~Drag to draw selection rectangle with visible border~~
 - [x] ~~Minimum selection: 10×10 pixels~~
 - [x] ~~Esc cancels and returns to picker~~
-- [ ] Selection rectangle shows live dimensions (W×H)
-- [ ] Semi-transparent dark overlay outside selected region
+- [x] ~~Selection rectangle shows live dimensions (W×H)~~
+- [x] ~~Semi-transparent dark overlay outside selected region~~
 
 ### 2.4 Output
 - [x] ~~Save as PNG (default) or JPEG~~
@@ -61,7 +61,7 @@
 
 ### 2.5 Post-Capture
 - [x] ~~Toast notification with file name~~
-- [ ] Click notification to reveal file in Explorer
+- [x] ~~Click notification to reveal file in Explorer~~
 - [ ] "Show in Explorer" option (configurable)
 
 ---
@@ -125,22 +125,22 @@
 - [x] ~~Countdown toggle with duration selector~~
 - [x] ~~Keyboard shortcuts: R, S, W, Esc~~
 - [ ] Mica/Acrylic backdrop
-- [ ] Remembers last position across sessions
+- [x] ~~Remembers last position across sessions~~
 - [ ] Smooth appear/dismiss animation
 
 ### 5.2 Start Recording Panel
 - [x] ~~Floating pill with Start button~~
 - [x] ~~Shows capture type label (Video / GIF)~~
 - [x] ~~Cancel button returns to picker~~
-- [ ] Remembers last position
+- [x] ~~Remembers last position~~
 
 ### 5.3 Stop Recording Panel
 - [x] ~~Floating always-on-top pill~~
 - [x] ~~Red pulse dot animation indicating active recording~~
-- [x] ~~Monospaced elapsed timer (MM:SS)~~
+- [x] ~~Monospaced elapsed timer (MM:SS.f with smooth tenths)~~
 - [x] ~~Stop button~~
 - [x] ~~Draggable~~
-- [ ] Remembers last position
+- [x] ~~Remembers last position~~
 
 ### 5.4 Countdown Window
 - [x] ~~Centered overlay with large countdown number~~
@@ -223,7 +223,7 @@
 ### 8.1 Toast Notifications
 - [x] ~~Post-save notification with file name~~
 - [x] ~~Error notifications for capture failures~~
-- [ ] Click notification to reveal file in Explorer
+- [x] ~~Click notification to reveal file in Explorer~~
 - [ ] Notification includes thumbnail preview for screenshots
 
 ### 8.2 Clipboard
@@ -289,7 +289,9 @@
 ### 13.1 Direct Distribution
 - [x] ~~Unpackaged self-contained `.exe` build~~
 - [x] ~~`build.ps1` script builds + publishes~~
-- [ ] GitHub Actions CI pipeline
+- [x] ~~GitHub Actions CI pipeline (build matrix: x64+arm64, Debug+Release)~~
+- [x] ~~GitHub Actions Release pipeline (tag-triggered, creates GitHub Release with zips)~~
+- [x] ~~GitHub Pages site with install guide, features, and keyboard shortcuts~~
 - [ ] Auto-update checker (GitHub Releases version compare)
 - [ ] Code signing
 
@@ -322,17 +324,17 @@
 
 | Area | Total | Done | Remaining |
 |---|---|---|---|
-| App Shell & Lifecycle | 9 | 7 | 2 |
-| Screenshot Capture | 16 | 13 | 3 |
+| App Shell & Lifecycle | 9 | 9 | 0 |
+| Screenshot Capture | 16 | 16 | 0 |
 | Video Recording | 13 | 10 | 3 |
 | GIF Recording | 10 | 9 | 1 |
-| Floating Panels | 17 | 13 | 4 |
+| Floating Panels | 17 | 16 | 1 |
 | Global Hotkeys | 7 | 5 | 2 |
 | Settings Window | 19 | 15 | 4 |
-| Notifications & Clipboard | 6 | 4 | 2 |
+| Notifications & Clipboard | 6 | 5 | 1 |
 | File Management | 8 | 7 | 1 |
 | Onboarding | 6 | 1 | 5 |
 | Accessibility | 5 | 0 | 5 |
 | Multi-Monitor & DPI | 5 | 1 | 4 |
-| Distribution | 6 | 2 | 4 |
-| **Total** | **127** | **87** | **40** |
+| Distribution | 8 | 5 | 3 |
+| **Total** | **130** | **100** | **30** |
