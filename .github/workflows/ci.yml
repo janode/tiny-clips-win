@@ -1,0 +1,38 @@
+name: CI Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        platform: [x64, arm64]
+        configuration: [Debug, Release]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Restore dependencies
+        run: dotnet restore TinyClips/TinyClips.csproj -p:Platform=${{ matrix.platform }}
+
+      - name: Build
+        run: dotnet build TinyClips/TinyClips.csproj -c ${{ matrix.configuration }} -p:Platform=${{ matrix.platform }} --no-restore
+
+      - name: Upload build artifacts
+        if: matrix.configuration == 'Release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: TinyClips-${{ matrix.platform }}-${{ matrix.configuration }}
+          path: TinyClips/bin/${{ matrix.platform }}/${{ matrix.configuration }}/net10.0-windows10.0.22621.0/win-${{ matrix.platform }}/
+          retention-days: 14
