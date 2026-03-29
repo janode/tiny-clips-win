@@ -98,6 +98,9 @@ public partial class App : Application
         {
             _captureManager.ShowOnboarding();
         }
+
+        // Check for updates in the background (fire-and-forget)
+        _ = UpdateChecker.CheckForUpdateAsync();
     }
 
     private void SetupTrayIcon()

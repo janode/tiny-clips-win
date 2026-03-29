@@ -1,14 +1,14 @@
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Runtime.InteropServices;
 using TinyClips.Models;
 
 namespace TinyClips.Capture;
 
 /// <summary>
-/// Records screen to MP4 video using GDI+ frame capture + ffmpeg encoding.
-/// Uses a separate ffmpeg process for encoding (simpler than MFSinkWriter COM interop).
-/// Falls back to raw frame saving if ffmpeg is not available.
+/// Records screen to MP4 video using GDI+ frame capture + Media Foundation H.264 encoding.
+/// Uses Windows built-in Media Foundation SinkWriter — no external dependencies needed.
 /// </summary>
 public sealed class VideoRecorder : IDisposable
 {
@@ -18,9 +18,6 @@ public sealed class VideoRecorder : IDisposable
     private string? _outputPath;
     private int _fps;
     private DateTime _startTime;
-
-    // For ffmpeg-based encoding
-    private Process? _ffmpegProcess;
 
     public bool IsRecording => _isRecording;
     public TimeSpan Elapsed => _isRecording ? DateTime.Now - _startTime : TimeSpan.Zero;
@@ -61,167 +58,69 @@ public sealed class VideoRecorder : IDisposable
             throw new InvalidOperationException("Not recording.");
 
         _isRecording = false;
-        _captureThread?.Join(5000);
-
-        // Close ffmpeg stdin to signal end of input
-        try
-        {
-            _ffmpegProcess?.StandardInput.BaseStream.Close();
-            _ffmpegProcess?.WaitForExit(10000);
-        }
-        catch { }
-
-        _ffmpegProcess?.Dispose();
-        _ffmpegProcess = null;
+        _captureThread?.Join(10000);
 
         return Task.FromResult(_outputPath ?? string.Empty);
     }
 
     private void CaptureLoop()
     {
-        var frameInterval = TimeSpan.FromSeconds(1.0 / _fps);
-        var ffmpegPath = FindFfmpeg();
-
-        if (ffmpegPath != null && _outputPath != null)
-        {
-            StartFfmpegProcess(ffmpegPath);
-            CaptureToFfmpeg(frameInterval);
-        }
-        else if (_outputPath != null)
-        {
-            // Fallback: capture frames as individual images (user can convert later)
-            CaptureToFrames(frameInterval);
-        }
-    }
-
-    private void StartFfmpegProcess(string ffmpegPath)
-    {
-        var psi = new ProcessStartInfo
-        {
-            FileName = ffmpegPath,
-            Arguments = $"-y -f rawvideo -pix_fmt bgra -s {_captureRect.Width}x{_captureRect.Height} " +
-                        $"-r {_fps} -i pipe:0 -c:v libx264 -preset ultrafast " +
-                        $"-crf 18 -pix_fmt yuv420p \"{_outputPath}\"",
-            UseShellExecute = false,
-            RedirectStandardInput = true,
-            RedirectStandardError = true,
-            CreateNoWindow = true
-        };
-
-        _ffmpegProcess = Process.Start(psi);
-    }
-
-    private void CaptureToFfmpeg(TimeSpan frameInterval)
-    {
-        using var bitmap = new Bitmap(_captureRect.Width, _captureRect.Height, PixelFormat.Format32bppArgb);
-        using var graphics = Graphics.FromImage(bitmap);
-
-        var frameBytes = _captureRect.Width * _captureRect.Height * 4;
-        var buffer = new byte[frameBytes];
-        var stopwatch = Stopwatch.StartNew();
-
-        while (_isRecording && _ffmpegProcess?.HasExited != true)
-        {
-            var frameStart = stopwatch.Elapsed;
-
-            try
-            {
-                graphics.CopyFromScreen(_captureRect.Left, _captureRect.Top, 0, 0,
-                    _captureRect.Size, CopyPixelOperation.SourceCopy);
-
-                var bitmapData = bitmap.LockBits(
-                    new Rectangle(0, 0, bitmap.Width, bitmap.Height),
-                    ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
-
-                System.Runtime.InteropServices.Marshal.Copy(bitmapData.Scan0, buffer, 0, frameBytes);
-                bitmap.UnlockBits(bitmapData);
-
-                _ffmpegProcess?.StandardInput.BaseStream.Write(buffer, 0, buffer.Length);
-
-                OnElapsedChanged?.Invoke(DateTime.Now - _startTime);
-            }
-            catch
-            {
-                if (!_isRecording) break;
-            }
-
-            // Maintain frame rate
-            var elapsed = stopwatch.Elapsed - frameStart;
-            var sleepTime = frameInterval - elapsed;
-            if (sleepTime > TimeSpan.Zero)
-                Thread.Sleep(sleepTime);
-        }
-    }
-
-    private void CaptureToFrames(TimeSpan frameInterval)
-    {
-        // Fallback: save individual frames as PNG for later assembly
-        var framesDir = Path.Combine(
-            Path.GetDirectoryName(_outputPath) ?? Path.GetTempPath(),
-            "TinyClips_frames_" + Path.GetFileNameWithoutExtension(_outputPath));
-        Directory.CreateDirectory(framesDir);
-
-        int frameNumber = 0;
-        var stopwatch = Stopwatch.StartNew();
-
-        while (_isRecording)
-        {
-            var frameStart = stopwatch.Elapsed;
-
-            try
-            {
-                using var bitmap = new Bitmap(_captureRect.Width, _captureRect.Height, PixelFormat.Format32bppArgb);
-                using var graphics = Graphics.FromImage(bitmap);
-                graphics.CopyFromScreen(_captureRect.Left, _captureRect.Top, 0, 0,
-                    _captureRect.Size, CopyPixelOperation.SourceCopy);
-
-                bitmap.Save(Path.Combine(framesDir, $"frame_{frameNumber:D6}.png"),
-                    System.Drawing.Imaging.ImageFormat.Png);
-                frameNumber++;
-
-                OnElapsedChanged?.Invoke(DateTime.Now - _startTime);
-            }
-            catch
-            {
-                if (!_isRecording) break;
-            }
-
-            var elapsed = stopwatch.Elapsed - frameStart;
-            var sleepTime = frameInterval - elapsed;
-            if (sleepTime > TimeSpan.Zero)
-                Thread.Sleep(sleepTime);
-        }
-    }
-
-    private static string? FindFfmpeg()
-    {
-        // Check bundled location first
-        var appDir = AppContext.BaseDirectory;
-        var bundled = Path.Combine(appDir, "ffmpeg.exe");
-        if (File.Exists(bundled)) return bundled;
-
-        // Check PATH
+        Marshal.ThrowExceptionForHR(MFStartup(MF_VERSION, 0));
         try
         {
-            var psi = new ProcessStartInfo
+            var encoder = new MFEncoder(_outputPath!, _captureRect.Width, _captureRect.Height, _fps);
+            try
             {
-                FileName = "where",
-                Arguments = "ffmpeg",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                CreateNoWindow = true
-            };
-            using var process = Process.Start(psi);
-            var output = process?.StandardOutput.ReadToEnd().Trim();
-            process?.WaitForExit();
-            if (process?.ExitCode == 0 && !string.IsNullOrEmpty(output))
-            {
-                return output.Split('\n')[0].Trim();
-            }
-        }
-        catch { }
+                var frameInterval = TimeSpan.FromSeconds(1.0 / _fps);
+                long frameDuration = 10_000_000L / _fps; // 100-nanosecond units
+                long timestamp = 0;
 
-        return null;
+                using var bitmap = new Bitmap(_captureRect.Width, _captureRect.Height, PixelFormat.Format32bppArgb);
+                using var graphics = Graphics.FromImage(bitmap);
+                var stopwatch = Stopwatch.StartNew();
+
+                while (_isRecording)
+                {
+                    var frameStart = stopwatch.Elapsed;
+
+                    try
+                    {
+                        graphics.CopyFromScreen(_captureRect.Left, _captureRect.Top, 0, 0,
+                            _captureRect.Size, CopyPixelOperation.SourceCopy);
+
+                        var bmpData = bitmap.LockBits(
+                            new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                            ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                        try
+                        {
+                            encoder.WriteFrame(bmpData.Scan0, bmpData.Stride * bmpData.Height,
+                                timestamp, frameDuration);
+                        }
+                        finally { bitmap.UnlockBits(bmpData); }
+
+                        timestamp += frameDuration;
+                        OnElapsedChanged?.Invoke(DateTime.Now - _startTime);
+                    }
+                    catch
+                    {
+                        if (!_isRecording) break;
+                    }
+
+                    // Maintain frame rate
+                    var elapsed = stopwatch.Elapsed - frameStart;
+                    var sleepTime = frameInterval - elapsed;
+                    if (sleepTime > TimeSpan.Zero)
+                        Thread.Sleep(sleepTime);
+                }
+
+                encoder.Finish();
+            }
+            finally { encoder.Dispose(); }
+        }
+        finally
+        {
+            MFShutdown();
+        }
     }
 
     public void Dispose()
@@ -231,6 +130,263 @@ public sealed class VideoRecorder : IDisposable
             _isRecording = false;
             _captureThread?.Join(2000);
         }
-        _ffmpegProcess?.Dispose();
+    }
+
+    // MARK: - Media Foundation Encoder
+
+    private sealed class MFEncoder : IDisposable
+    {
+        private readonly IMFSinkWriter _writer;
+        private readonly int _streamIndex;
+        private readonly int _frameSize;
+
+        public MFEncoder(string outputPath, int width, int height, int fps)
+        {
+            _frameSize = width * height * 4;
+
+            // Output type: H.264
+            Marshal.ThrowExceptionForHR(MFCreateMediaType(out var outputType));
+            SetGUID(outputType, MF_MT_MAJOR_TYPE, MFMediaType_Video);
+            SetGUID(outputType, MF_MT_SUBTYPE, MFVideoFormat_H264);
+            SetUINT32(outputType, MF_MT_AVG_BITRATE, Math.Max(1_000_000u, (uint)(width * height * fps / 4)));
+            SetUINT32(outputType, MF_MT_INTERLACE_MODE, 2); // MFVideoInterlace_Progressive
+            SetUINT64(outputType, MF_MT_FRAME_SIZE, Pack2x32((uint)width, (uint)height));
+            SetUINT64(outputType, MF_MT_FRAME_RATE, Pack2x32((uint)fps, 1));
+            SetUINT64(outputType, MF_MT_PIXEL_ASPECT_RATIO, Pack2x32(1, 1));
+
+            // Input type: RGB32 (matches GDI+ Format32bppArgb — both are BGRA in memory)
+            Marshal.ThrowExceptionForHR(MFCreateMediaType(out var inputType));
+            SetGUID(inputType, MF_MT_MAJOR_TYPE, MFMediaType_Video);
+            SetGUID(inputType, MF_MT_SUBTYPE, MFVideoFormat_RGB32);
+            SetUINT32(inputType, MF_MT_INTERLACE_MODE, 2);
+            SetUINT64(inputType, MF_MT_FRAME_SIZE, Pack2x32((uint)width, (uint)height));
+            SetUINT64(inputType, MF_MT_FRAME_RATE, Pack2x32((uint)fps, 1));
+            SetUINT64(inputType, MF_MT_PIXEL_ASPECT_RATIO, Pack2x32(1, 1));
+
+            // Create sink writer — .mp4 extension auto-selects MPEG-4 container
+            Marshal.ThrowExceptionForHR(MFCreateSinkWriterFromURL(
+                outputPath, nint.Zero, nint.Zero, out _writer));
+            Marshal.ThrowExceptionForHR(_writer.AddStream(outputType, out _streamIndex));
+            Marshal.ThrowExceptionForHR(_writer.SetInputMediaType(_streamIndex, inputType, nint.Zero));
+            Marshal.ThrowExceptionForHR(_writer.BeginWriting());
+
+            Marshal.ReleaseComObject(inputType);
+            Marshal.ReleaseComObject(outputType);
+        }
+
+        public void WriteFrame(nint frameData, int dataLength, long timestamp, long duration)
+        {
+            Marshal.ThrowExceptionForHR(MFCreateMemoryBuffer(_frameSize, out var buffer));
+            try
+            {
+                buffer.Lock(out var pbData, out _, out _);
+                try
+                {
+                    unsafe
+                    {
+                        Buffer.MemoryCopy((void*)frameData, (void*)pbData,
+                            _frameSize, Math.Min(dataLength, _frameSize));
+                    }
+                }
+                finally { buffer.Unlock(); }
+                buffer.SetCurrentLength(_frameSize);
+
+                Marshal.ThrowExceptionForHR(MFCreateSample(out var sample));
+                try
+                {
+                    sample.AddBuffer(buffer);
+                    sample.SetSampleTime(timestamp);
+                    sample.SetSampleDuration(duration);
+                    Marshal.ThrowExceptionForHR(_writer.WriteSample(_streamIndex, sample));
+                }
+                finally { Marshal.ReleaseComObject(sample); }
+            }
+            finally { Marshal.ReleaseComObject(buffer); }
+        }
+
+        public void Finish() => _writer.FinalizeWriting();
+
+        public void Dispose() => Marshal.ReleaseComObject(_writer);
+
+        private static void SetGUID(IMFMediaType type, Guid key, Guid value)
+            => Marshal.ThrowExceptionForHR(type.SetGUID(ref key, ref value));
+
+        private static void SetUINT32(IMFMediaType type, Guid key, uint value)
+            => Marshal.ThrowExceptionForHR(type.SetUINT32(ref key, value));
+
+        private static void SetUINT64(IMFMediaType type, Guid key, ulong value)
+            => Marshal.ThrowExceptionForHR(type.SetUINT64(ref key, value));
+
+        private static ulong Pack2x32(uint hi, uint lo) => ((ulong)hi << 32) | lo;
+    }
+
+    // MARK: - Media Foundation P/Invoke
+
+    private const uint MF_VERSION = 0x00020070;
+
+    // Media type GUIDs
+    private static Guid MFMediaType_Video = new("73646976-0000-0010-8000-00AA00389B71");
+    private static Guid MFVideoFormat_H264 = new("34363248-0000-0010-8000-00AA00389B71");
+    private static Guid MFVideoFormat_RGB32 = new("00000016-0000-0010-8000-00AA00389B71");
+
+    // Attribute GUIDs
+    private static Guid MF_MT_MAJOR_TYPE = new("48eba18e-f8c9-4687-bf11-0a74c9f96a8f");
+    private static Guid MF_MT_SUBTYPE = new("f7e34c9a-42e8-4714-b74b-cb29d72c35e5");
+    private static Guid MF_MT_AVG_BITRATE = new("20332624-fb0d-4d9e-bd0d-cbf6786c102e");
+    private static Guid MF_MT_INTERLACE_MODE = new("e2724bb8-e676-4806-b4b2-a8d6efb44ccd");
+    private static Guid MF_MT_FRAME_SIZE = new("1652c33d-d6b2-4012-b834-72030849a37d");
+    private static Guid MF_MT_FRAME_RATE = new("c459a2e8-3d2c-4e44-b132-fee5156c7bb0");
+    private static Guid MF_MT_PIXEL_ASPECT_RATIO = new("c6376a1e-8d0a-4027-be45-6d9a0ad39bb6");
+
+    [DllImport("mfplat.dll")]
+    private static extern int MFStartup(uint version, uint dwFlags);
+
+    [DllImport("mfplat.dll")]
+    private static extern int MFShutdown();
+
+    [DllImport("mfplat.dll")]
+    private static extern int MFCreateMediaType(
+        [MarshalAs(UnmanagedType.Interface)] out IMFMediaType ppMFType);
+
+    [DllImport("mfplat.dll")]
+    private static extern int MFCreateSample(
+        [MarshalAs(UnmanagedType.Interface)] out IMFSample ppIMFSample);
+
+    [DllImport("mfplat.dll")]
+    private static extern int MFCreateMemoryBuffer(
+        int cbMaxLength, [MarshalAs(UnmanagedType.Interface)] out IMFMediaBuffer ppBuffer);
+
+    [DllImport("mfreadwrite.dll", CharSet = CharSet.Unicode)]
+    private static extern int MFCreateSinkWriterFromURL(
+        [MarshalAs(UnmanagedType.LPWStr)] string pwszOutputURL,
+        nint pByteStream, nint pAttributes,
+        [MarshalAs(UnmanagedType.Interface)] out IMFSinkWriter ppSinkWriter);
+
+    // MARK: - Media Foundation COM Interfaces
+
+    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    [Guid("a27003cf-2354-4f2a-8d6a-ab7cff15437e")]
+    private interface IMFSinkWriter
+    {
+        [PreserveSig] int AddStream([MarshalAs(UnmanagedType.Interface)] IMFMediaType pTargetMediaType, out int pdwStreamIndex);
+        [PreserveSig] int SetInputMediaType(int dwStreamIndex, [MarshalAs(UnmanagedType.Interface)] IMFMediaType pInputMediaType, nint pEncodingParameters);
+        [PreserveSig] int BeginWriting();
+        [PreserveSig] int WriteSample(int dwStreamIndex, [MarshalAs(UnmanagedType.Interface)] IMFSample pSample);
+        [PreserveSig] int SendStreamTick(int dwStreamIndex, long llTimestamp);
+        [PreserveSig] int PlaceMarker(int dwStreamIndex, nint pvContext);
+        [PreserveSig] int NotifyEndOfSegment(int dwStreamIndex);
+        [PreserveSig] int Flush(int dwStreamIndex);
+        [PreserveSig] int FinalizeWriting();
+        [PreserveSig] int GetServiceForStream(int dwStreamIndex, ref Guid guidService, ref Guid riid, out nint ppvObject);
+        [PreserveSig] int GetStatistics(int dwStreamIndex, nint pStats);
+    }
+
+    // IMFMediaType — includes all 30 IMFAttributes methods + 5 IMFMediaType methods
+    // Stubs for unused methods maintain correct vtable layout
+    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    [Guid("44ae0fa8-ea31-4109-8d2e-4cae4997c555")]
+    private interface IMFMediaType
+    {
+        // IMFAttributes methods (30 — indices 0–29)
+        void GetItem();                     // 0
+        void GetItemType();                 // 1
+        void CompareItem();                 // 2
+        void Compare();                     // 3
+        void GetUINT32_();                  // 4
+        void GetUINT64_();                  // 5
+        void GetDouble_();                  // 6
+        void GetGUID_();                    // 7
+        void GetStringLength();             // 8
+        void GetString();                   // 9
+        void GetAllocatedString();          // 10
+        void GetBlobSize();                 // 11
+        void GetBlob();                     // 12
+        void GetAllocatedBlob();            // 13
+        void GetUnknown();                  // 14
+        void SetItem();                     // 15
+        void DeleteItem();                  // 16
+        void DeleteAllItems();              // 17
+        [PreserveSig] int SetUINT32([In] ref Guid guidKey, uint unValue);   // 18
+        [PreserveSig] int SetUINT64([In] ref Guid guidKey, ulong unValue);  // 19
+        void SetDouble();                   // 20
+        [PreserveSig] int SetGUID([In] ref Guid guidKey, [In] ref Guid guidValue);  // 21
+        void SetString();                   // 22
+        void SetBlob();                     // 23
+        void SetUnknown();                  // 24
+        void LockStore();                   // 25
+        void UnlockStore();                 // 26
+        void GetCount();                    // 27
+        void GetItemByIndex();              // 28
+        void CopyAllItems();                // 29
+        // IMFMediaType methods (5 — indices 30–34)
+        void GetMajorType();                // 30
+        void IsCompressedFormat();          // 31
+        void IsEqual();                     // 32
+        void GetRepresentation();           // 33
+        void FreeRepresentation();          // 34
+    }
+
+    // IMFSample — includes all 30 IMFAttributes methods + 14 IMFSample methods
+    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    [Guid("c40a00f2-b93a-4d80-ae8c-5a1c634f58e4")]
+    private interface IMFSample
+    {
+        // IMFAttributes methods (30 — indices 0–29)
+        void GetItem();
+        void GetItemType();
+        void CompareItem();
+        void Compare();
+        void GetUINT32_();
+        void GetUINT64_();
+        void GetDouble_();
+        void GetGUID_();
+        void GetStringLength();
+        void GetString();
+        void GetAllocatedString();
+        void GetBlobSize();
+        void GetBlob();
+        void GetAllocatedBlob();
+        void GetUnknown();
+        void SetItem();
+        void DeleteItem();
+        void DeleteAllItems();
+        void SetUINT32();
+        void SetUINT64();
+        void SetDouble();
+        void SetGUID();
+        void SetString();
+        void SetBlob();
+        void SetUnknown();
+        void LockStore();
+        void UnlockStore();
+        void GetCount();
+        void GetItemByIndex();
+        void CopyAllItems();
+        // IMFSample methods (14 — indices 30–43)
+        void GetSampleFlags();              // 30
+        void SetSampleFlags();              // 31
+        void GetSampleTime();               // 32
+        void SetSampleTime(long hnsSampleTime);           // 33
+        void GetSampleDuration();           // 34
+        void SetSampleDuration(long hnsSampleDuration);   // 35
+        void GetBufferCount();              // 36
+        void GetBufferByIndex();            // 37
+        void ConvertToContiguousBuffer();   // 38
+        void AddBuffer([MarshalAs(UnmanagedType.Interface)] IMFMediaBuffer pBuffer);  // 39
+        void RemoveBufferByIndex();         // 40
+        void RemoveAllBuffers();            // 41
+        void GetTotalLength();              // 42
+        void CopyToBuffer();                // 43
+    }
+
+    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    [Guid("045FA593-8799-42b8-BC8D-8968C6453507")]
+    private interface IMFMediaBuffer
+    {
+        void Lock(out nint ppbBuffer, out int pcbMaxLength, out int pcbCurrentLength);
+        void Unlock();
+        void GetCurrentLength(out int pcbCurrentLength);
+        void SetCurrentLength(int cbCurrentLength);
+        void GetMaxLength(out int pcbMaxLength);
     }
 }

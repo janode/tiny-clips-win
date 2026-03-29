@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media.Animation;
 using TinyClips.Helpers;
 using TinyClips.Models;
 using WinRT.Interop;
@@ -50,6 +51,74 @@ public sealed partial class CapturePickerWindow : Window
             CenterAtTopOfScreen(hwnd, scale, w);
 
         Closed += OnWindowClosed;
+
+        // Smooth appear animation
+        RootPanel.Loaded += (_, _) => PlayAppearAnimation();
+    }
+
+    private void PlayAppearAnimation()
+    {
+        var transform = (Microsoft.UI.Xaml.Media.CompositeTransform)RootPanel.RenderTransform;
+        var duration = new Duration(TimeSpan.FromMilliseconds(250));
+        var easing = new CircleEase { EasingMode = EasingMode.EaseOut };
+
+        var storyboard = new Storyboard();
+
+        var fadeIn = new DoubleAnimation { From = 0, To = 1, Duration = duration, EasingFunction = easing };
+        Storyboard.SetTarget(fadeIn, RootPanel);
+        Storyboard.SetTargetProperty(fadeIn, "Opacity");
+        storyboard.Children.Add(fadeIn);
+
+        var slideUp = new DoubleAnimation { From = 12, To = 0, Duration = duration, EasingFunction = easing };
+        Storyboard.SetTarget(slideUp, transform);
+        Storyboard.SetTargetProperty(slideUp, "TranslateY");
+        storyboard.Children.Add(slideUp);
+
+        var scaleX = new DoubleAnimation { From = 0.97, To = 1.0, Duration = duration, EasingFunction = easing };
+        Storyboard.SetTarget(scaleX, transform);
+        Storyboard.SetTargetProperty(scaleX, "ScaleX");
+        storyboard.Children.Add(scaleX);
+
+        var scaleY = new DoubleAnimation { From = 0.97, To = 1.0, Duration = duration, EasingFunction = easing };
+        Storyboard.SetTarget(scaleY, transform);
+        Storyboard.SetTargetProperty(scaleY, "ScaleY");
+        storyboard.Children.Add(scaleY);
+
+        storyboard.Begin();
+    }
+
+    private async Task PlayDismissAnimationAsync()
+    {
+        var transform = (Microsoft.UI.Xaml.Media.CompositeTransform)RootPanel.RenderTransform;
+        var duration = new Duration(TimeSpan.FromMilliseconds(150));
+        var easing = new CircleEase { EasingMode = EasingMode.EaseIn };
+
+        var storyboard = new Storyboard();
+
+        var fadeOut = new DoubleAnimation { To = 0, Duration = duration, EasingFunction = easing };
+        Storyboard.SetTarget(fadeOut, RootPanel);
+        Storyboard.SetTargetProperty(fadeOut, "Opacity");
+        storyboard.Children.Add(fadeOut);
+
+        var slideDown = new DoubleAnimation { To = 8, Duration = duration, EasingFunction = easing };
+        Storyboard.SetTarget(slideDown, transform);
+        Storyboard.SetTargetProperty(slideDown, "TranslateY");
+        storyboard.Children.Add(slideDown);
+
+        var scaleX = new DoubleAnimation { To = 0.97, Duration = duration, EasingFunction = easing };
+        Storyboard.SetTarget(scaleX, transform);
+        Storyboard.SetTargetProperty(scaleX, "ScaleX");
+        storyboard.Children.Add(scaleX);
+
+        var scaleY = new DoubleAnimation { To = 0.97, Duration = duration, EasingFunction = easing };
+        Storyboard.SetTarget(scaleY, transform);
+        Storyboard.SetTargetProperty(scaleY, "ScaleY");
+        storyboard.Children.Add(scaleY);
+
+        var tcs = new TaskCompletionSource();
+        storyboard.Completed += (_, _) => tcs.TrySetResult();
+        storyboard.Begin();
+        await tcs.Task;
     }
 
     private void ConfigureWindowStyle(nint hwnd)
@@ -181,20 +250,22 @@ public sealed partial class CapturePickerWindow : Window
         SavePosition();
     }
 
-    private void FinishCapture(CapturePickerMode mode)
+    private async void FinishCapture(CapturePickerMode mode)
     {
         if (_didComplete) return;
         _didComplete = true;
+        await PlayDismissAnimationAsync();
         this.Close();
         OnCapture?.Invoke(mode, _countdownEnabled, _countdownDuration);
         OnCapture = null;
         OnCancelled = null;
     }
 
-    private void FinishCancel()
+    private async void FinishCancel()
     {
         if (_didComplete) return;
         _didComplete = true;
+        await PlayDismissAnimationAsync();
         this.Close();
         OnCancelled?.Invoke();
         OnCapture = null;

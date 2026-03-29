@@ -78,6 +78,7 @@ public sealed class CaptureSettings
     // MARK: - State
 
     public bool HasCompletedOnboarding { get; set; } = false;
+    public DateTime? LastUpdateCheckUtc { get; set; }
 
     // MARK: - Persistence
 
@@ -154,6 +155,7 @@ public sealed class CaptureSettings
         StopPanelPositionX = fresh.StopPanelPositionX;
         StopPanelPositionY = fresh.StopPanelPositionY;
         HasCompletedOnboarding = false;
+        LastUpdateCheckUtc = null;
         Save();
     }
 

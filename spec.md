@@ -126,7 +126,7 @@
 - [x] ~~Keyboard shortcuts: R, S, W, Esc~~
 - [ ] Mica/Acrylic backdrop
 - [x] ~~Remembers last position across sessions~~
-- [ ] Smooth appear/dismiss animation
+- [x] ~~Smooth appear/dismiss animation~~
 
 ### 5.2 Start Recording Panel
 - [x] ~~Floating pill with Start button~~
@@ -145,7 +145,7 @@
 ### 5.4 Countdown Window
 - [x] ~~Centered overlay with large countdown number~~
 - [x] ~~Counts down from configured duration to 1, then auto-dismisses~~
-- [ ] Smooth scale/fade animation per number
+- [x] ~~Smooth scale/fade animation per number~~
 
 ---
 
@@ -292,7 +292,7 @@
 - [x] ~~GitHub Actions CI pipeline (build matrix: x64+arm64, Debug+Release)~~
 - [x] ~~GitHub Actions Release pipeline (tag-triggered, creates GitHub Release with zips)~~
 - [x] ~~GitHub Pages site with install guide, features, and keyboard shortcuts~~
-- [ ] Auto-update checker (GitHub Releases version compare)
+- [x] ~~Auto-update checker (GitHub Releases version compare)~~
 - [ ] Code signing
 
 ### 13.2 Microsoft Store
@@ -328,7 +328,7 @@
 | Screenshot Capture | 16 | 16 | 0 |
 | Video Recording | 13 | 10 | 3 |
 | GIF Recording | 10 | 9 | 1 |
-| Floating Panels | 17 | 16 | 1 |
+| Floating Panels | 17 | 17 | 0 |
 | Global Hotkeys | 7 | 5 | 2 |
 | Settings Window | 19 | 15 | 4 |
 | Notifications & Clipboard | 6 | 5 | 1 |
@@ -336,5 +336,5 @@
 | Onboarding | 6 | 1 | 5 |
 | Accessibility | 5 | 0 | 5 |
 | Multi-Monitor & DPI | 5 | 1 | 4 |
-| Distribution | 8 | 5 | 3 |
-| **Total** | **130** | **100** | **30** |
+| Distribution | 8 | 6 | 2 |
+| **Total** | **130** | **103** | **27** |

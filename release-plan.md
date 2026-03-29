@@ -2,8 +2,8 @@
 
 ## Now (v0.1.0 quality)
 
-- [ ] Video recording produces a usable MP4 (currently depends on ffmpeg or falls back to raw PNGs)
-- [ ] Window capture mode actually works (picker shows Region/Screen/Window but capture is region-only)
+- [x] Video recording produces a usable MP4 (Media Foundation H.264 SinkWriter — no external deps)
+- [x] Window capture mode actually works (WindowSelectorWindow overlay with click-to-select)
 - [ ] Test a clean install from release zip on a machine without the SDK
 - [ ] Handle multi-monitor mixed-DPI (floating panels position/size correctly across displays)
 

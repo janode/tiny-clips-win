@@ -61,16 +61,53 @@ public sealed class NotificationService
         }
     }
 
+    public void ShowUpdateNotification(string version, string url)
+    {
+        try
+        {
+            var builder = new AppNotificationBuilder()
+                .AddText($"TinyClips {version} available")
+                .AddText("Click to download the latest version.")
+                .AddArgument("action", "openUrl")
+                .AddArgument("url", url);
+
+            var notification = builder.BuildNotification();
+            AppNotificationManager.Default.Show(notification);
+        }
+        catch
+        {
+            // Non-fatal
+        }
+    }
+
     private void OnNotificationInvoked(AppNotificationManager sender,
         AppNotificationActivatedEventArgs args)
     {
-        if (args.Arguments.TryGetValue("action", out var action) &&
-            action == "openFile" &&
-            args.Arguments.TryGetValue("filePath", out var filePath))
+        if (args.Arguments.TryGetValue("action", out var action))
         {
-            if (File.Exists(filePath))
+            if (action == "openFile" &&
+                args.Arguments.TryGetValue("filePath", out var filePath))
             {
-                Helpers.NativeMethods.ShowInExplorer(filePath);
+                if (File.Exists(filePath))
+                {
+                    Helpers.NativeMethods.ShowInExplorer(filePath);
+                }
+            }
+            else if (action == "openUrl" &&
+                args.Arguments.TryGetValue("url", out var url))
+            {
+                try
+                {
+                    var psi = new System.Diagnostics.ProcessStartInfo(url)
+                    {
+                        UseShellExecute = true
+                    };
+                    System.Diagnostics.Process.Start(psi);
+                }
+                catch
+                {
+                    // Best-effort
+                }
             }
         }
     }

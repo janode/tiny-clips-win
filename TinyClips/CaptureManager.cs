@@ -101,8 +101,8 @@ public sealed class CaptureManager : IDisposable
                 break;
 
             case CapturePickerMode.Window:
-                // For v1, fall back to full screen capture at cursor
-                region = CaptureRegion.FullScreenAtCursor();
+                region = await WindowSelectorWindow.SelectWindowAsync();
+                if (region == null) { ShowPicker(CaptureType.Screenshot); return; }
                 break;
         }
 
@@ -357,7 +357,8 @@ public sealed class CaptureManager : IDisposable
                 break;
 
             case CapturePickerMode.Window:
-                region = CaptureRegion.FullScreenAtCursor();
+                region = await WindowSelectorWindow.SelectWindowAsync();
+                if (region == null) { ShowPicker(type); return; }
                 break;
         }
 
