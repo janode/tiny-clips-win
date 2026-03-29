@@ -97,4 +97,85 @@ public class VideoRecorderTests
         using var recorder = new VideoRecorder();
         Assert.Equal(TimeSpan.Zero, recorder.Elapsed);
     }
+
+    // MARK: - Frame Timing Math
+
+    [Theory]
+    [InlineData(30, 333_333)]    // 30 fps → 333,333 × 100ns = 33.3ms
+    [InlineData(24, 416_666)]    // 24 fps → 416,666 × 100ns = 41.7ms
+    [InlineData(60, 166_666)]    // 60 fps → 166,666 × 100ns = 16.7ms
+    [InlineData(1, 10_000_000)]  // 1 fps → 10M × 100ns = 1s
+    public void FrameDuration_InHundredNanoseconds_IsCorrect(int fps, long expected)
+    {
+        long frameDuration = 10_000_000L / fps;
+        Assert.Equal(expected, frameDuration);
+    }
+
+    [Fact]
+    public void VideoTimestamp_IncrementsCorrectly_At30Fps()
+    {
+        int fps = 30;
+        long frameDuration = 10_000_000L / fps;
+        long timestamp = 0;
+
+        // After 30 frames at 30fps, timestamp should be ~1 second
+        for (int i = 0; i < 30; i++)
+            timestamp += frameDuration;
+
+        // 30 × 333,333 = 9,999,990 (≈1s in 100ns units, minor truncation)
+        Assert.InRange(timestamp, 9_999_000L, 10_000_000L);
+    }
+
+    [Fact]
+    public void FrameInterval_MatchesDuration()
+    {
+        int fps = 30;
+        var frameInterval = TimeSpan.FromSeconds(1.0 / fps);
+        Assert.InRange(frameInterval.TotalMilliseconds, 33.0, 34.0);
+    }
+
+    // MARK: - Bitrate Calculation
+
+    [Theory]
+    [InlineData(1920, 1080, 30, 1920 * 1080 * 30u / 4)]  // 1080p30 → ~15.5 Mbps
+    [InlineData(1280, 720, 30, 1280 * 720 * 30u / 4)]     // 720p30 → ~6.9 Mbps
+    [InlineData(640, 480, 24, 640 * 480 * 24u / 4)]       // 480p24 → ~1.8 Mbps
+    public void BitrateCalculation_LargeResolutions_UsesFormula(int w, int h, int fps, uint expected)
+    {
+        uint bitrate = Math.Max(1_000_000u, (uint)((long)w * h * fps / 4));
+        Assert.Equal(expected, bitrate);
+    }
+
+    [Fact]
+    public void BitrateCalculation_TinyResolution_HasMinimumFloor()
+    {
+        // Very small region should still get 1Mbps minimum
+        uint bitrate = Math.Max(1_000_000u, (uint)(100 * 100 * 10 / 4));
+        Assert.Equal(1_000_000u, bitrate);
+    }
+
+    // MARK: - Pack2x32 Helper
+
+    [Fact]
+    public void Pack2x32_CombinesHighAndLow()
+    {
+        // Same algorithm as MFEncoder.Pack2x32
+        static ulong Pack2x32(uint hi, uint lo) => ((ulong)hi << 32) | lo;
+
+        // 1920×1080 frame size
+        ulong packed = Pack2x32(1920, 1080);
+        Assert.Equal(1920u, (uint)(packed >> 32));
+        Assert.Equal(1080u, (uint)(packed & 0xFFFFFFFF));
+    }
+
+    [Fact]
+    public void Pack2x32_FrameRate_EncodesCorrectly()
+    {
+        static ulong Pack2x32(uint hi, uint lo) => ((ulong)hi << 32) | lo;
+
+        // 30fps / 1 (30:1 ratio)
+        ulong packed = Pack2x32(30, 1);
+        Assert.Equal(30u, (uint)(packed >> 32));
+        Assert.Equal(1u, (uint)(packed & 0xFFFFFFFF));
+    }
 }

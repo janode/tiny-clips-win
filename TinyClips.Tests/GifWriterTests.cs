@@ -147,7 +147,7 @@ public class GifWriterTests
     [Fact]
     public void DimensionScaling_OddDimensions_RoundedToEven()
     {
-        int srcWidth = 641, srcHeight = 481, maxWidth = 641;
+        int srcWidth = 641, srcHeight = 481;
         int destWidth = srcWidth, destHeight = srcHeight;
 
         // No scaling needed (at maxWidth)
