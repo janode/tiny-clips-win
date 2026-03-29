@@ -48,6 +48,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Download x64 artifact
         uses: actions/download-artifact@v4
@@ -59,10 +61,48 @@ jobs:
         with:
           name: TinyClips-arm64
 
+      - name: Generate release notes
+        id: notes
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          PREV_TAG=$(git tag --sort=-v:refname | grep -A1 "^${TAG}$" | tail -1)
+
+          if [ "$PREV_TAG" = "$TAG" ] || [ -z "$PREV_TAG" ]; then
+            # First release or no previous tag — use all commits
+            COMMITS=$(git log --pretty=format:"- %s (%h)" "$TAG")
+          else
+            COMMITS=$(git log --pretty=format:"- %s (%h)" "${PREV_TAG}..${TAG}")
+          fi
+
+          EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+          {
+            echo "body<<$EOF"
+            echo "## What's Changed"
+            echo ""
+            echo "$COMMITS"
+            echo ""
+            echo "## Downloads"
+            echo ""
+            echo "| Platform | File |"
+            echo "|----------|------|"
+            echo "| Windows x64 (Intel/AMD) | \`TinyClips-x64.zip\` |"
+            echo "| Windows ARM64 (Snapdragon) | \`TinyClips-arm64.zip\` |"
+            echo ""
+            echo "## Install"
+            echo ""
+            echo "1. Download the zip for your platform"
+            echo "2. Extract to a folder of your choice"
+            echo "3. Run \`TinyClips.exe\`"
+            echo ""
+            echo "No installer needed — TinyClips is a self-contained portable app."
+            echo "Requires Windows 10 19041+ (optimized for Windows 11)."
+            echo "$EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          generate_release_notes: true
+          body: ${{ steps.notes.outputs.body }}
           files: |
             TinyClips-x64.zip
             TinyClips-arm64.zip
