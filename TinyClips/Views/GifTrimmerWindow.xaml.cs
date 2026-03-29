@@ -175,34 +175,29 @@ public sealed partial class GifTrimmerWindow : Window
         _isLoadingFrame = true;
         try
         {
-            // Clone the fully composited frame (ImageSharp handles disposal methods)
-            BitmapImage? bi = null;
-            await Task.Run(() =>
+            // Render frame to PNG bytes on background thread
+            byte[] pngBytes = await Task.Run(() =>
             {
                 using var frameImage = _gif.Frames.CloneFrame(frameIndex - 1); // 0-based
                 using var ms = new MemoryStream();
                 frameImage.SaveAsPng(ms);
-                ms.Position = 0;
-
-                // Marshal back to UI thread for BitmapImage creation
-                DispatcherQueue.TryEnqueue(() =>
-                {
-                    try
-                    {
-                        var ras = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-                        ms.Position = 0;
-                        ms.CopyTo(ras.AsStreamForWrite());
-                        ras.Seek(0);
-                        bi = new BitmapImage();
-                        bi.SetSource(ras);
-                        GifPreviewImage.Source = bi;
-                    }
-                    catch { }
-                    finally { _isLoadingFrame = false; }
-                });
+                return ms.ToArray();
             });
+
+            // Create BitmapImage on UI thread from the byte array
+            var ras = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+            using (var writer = ras.AsStreamForWrite())
+            {
+                await writer.WriteAsync(pngBytes, 0, pngBytes.Length);
+                await writer.FlushAsync();
+            }
+            ras.Seek(0);
+            var bi = new BitmapImage();
+            bi.SetSource(ras);
+            GifPreviewImage.Source = bi;
         }
-        catch
+        catch { }
+        finally
         {
             _isLoadingFrame = false;
         }

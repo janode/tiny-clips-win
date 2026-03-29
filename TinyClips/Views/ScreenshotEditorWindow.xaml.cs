@@ -71,6 +71,7 @@ public sealed partial class ScreenshotEditorWindow : Window
     private string? _tempPath;
     private int _imageWidth;
     private int _imageHeight;
+    private double _dpiScale = 1.0;
 
     private EditorTool _activeTool = EditorTool.None;
     private readonly List<EditorAction> _actions = [];
@@ -126,17 +127,14 @@ public sealed partial class ScreenshotEditorWindow : Window
     private void ConfigureWindowSize()
     {
         var hwnd = WindowNative.GetWindowHandle(this);
-        double dpiScale = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
+        _dpiScale = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
 
         var monitor = NativeMethods.GetMonitorRectAtCursor();
         int maxW = (int)(monitor.Width * 0.85);
         int maxH = (int)(monitor.Height * 0.85);
 
-        // Size to fit image + toolbar, capped to 85% of screen
-        int desiredW = (int)Math.Min(_imageWidth * dpiScale + 40 * dpiScale, maxW);
-        int desiredH = (int)Math.Min(_imageHeight * dpiScale + 140 * dpiScale, maxH);
-        int w = Math.Max(desiredW, (int)(600 * dpiScale));
-        int h = Math.Max(desiredH, (int)(400 * dpiScale));
+        var (w, h) = DpiHelper.CalculateEditorWindowSize(
+            _imageWidth, _imageHeight, _dpiScale, maxW, maxH);
 
         AppWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
         AppWindow.Move(new Windows.Graphics.PointInt32(
@@ -156,13 +154,16 @@ public sealed partial class ScreenshotEditorWindow : Window
         bi.UriSource = new Uri(_tempPath);
         ScreenshotImage.Source = bi;
 
-        // Size canvas to exact image pixel dimensions
-        ScreenshotImage.Width = _imageWidth;
-        ScreenshotImage.Height = _imageHeight;
-        CanvasContainer.Width = _imageWidth;
-        CanvasContainer.Height = _imageHeight;
-        AnnotationCanvas.Width = _imageWidth;
-        AnnotationCanvas.Height = _imageHeight;
+        // Size canvas to image dimensions in DIPs (physical pixels / dpiScale)
+        // so the preview matches the actual screen size of the captured area
+        double dipW = DpiHelper.PhysicalToDip(_imageWidth, _dpiScale);
+        double dipH = DpiHelper.PhysicalToDip(_imageHeight, _dpiScale);
+        ScreenshotImage.Width = dipW;
+        ScreenshotImage.Height = dipH;
+        CanvasContainer.Width = dipW;
+        CanvasContainer.Height = dipH;
+        AnnotationCanvas.Width = dipW;
+        AnnotationCanvas.Height = dipH;
 
         // Register keyboard shortcuts
         Content.KeyDown += OnKeyDown;
@@ -978,50 +979,54 @@ public sealed partial class ScreenshotEditorWindow : Window
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
+        // Canvas coordinates are in DIPs; bitmap is in physical pixels.
+        // Scale all annotation coordinates by _dpiScale.
+        float s = (float)_dpiScale;
+
         foreach (var action in _actions)
         {
             switch (action)
             {
                 case DrawAction draw:
-                    CompositeDraw(g, draw);
+                    CompositeDraw(g, draw, s);
                     break;
                 case ArrowAction arrow:
-                    CompositeArrow(g, arrow);
+                    CompositeArrow(g, arrow, s);
                     break;
                 case BlurAction blur:
-                    CompositeBlur(blur);
+                    CompositeBlur(blur, s);
                     break;
                 case TextAction text:
-                    CompositeText(g, text);
+                    CompositeText(g, text, s);
                     break;
             }
         }
     }
 
-    private static void CompositeDraw(Graphics g, DrawAction draw)
+    private static void CompositeDraw(Graphics g, DrawAction draw, float s)
     {
         if (draw.Points.Count < 2) return;
-        using var pen = new Pen(ToDrawingColor(draw.Color), (float)draw.Thickness)
+        using var pen = new Pen(ToDrawingColor(draw.Color), (float)draw.Thickness * s)
         {
             StartCap = LineCap.Round,
             EndCap = LineCap.Round,
             LineJoin = LineJoin.Round
         };
-        var points = draw.Points.Select(p => new PointF((float)p.X, (float)p.Y)).ToArray();
+        var points = draw.Points.Select(p => new PointF((float)p.X * s, (float)p.Y * s)).ToArray();
         g.DrawLines(pen, points);
     }
 
-    private static void CompositeArrow(Graphics g, ArrowAction arrow)
+    private static void CompositeArrow(Graphics g, ArrowAction arrow, float s)
     {
-        using var pen = new Pen(ToDrawingColor(arrow.Color), (float)arrow.Thickness)
+        using var pen = new Pen(ToDrawingColor(arrow.Color), (float)arrow.Thickness * s)
         {
             StartCap = LineCap.Round
         };
 
         // Draw line
         g.DrawLine(pen,
-            (float)arrow.Start.X, (float)arrow.Start.Y,
-            (float)arrow.End.X, (float)arrow.End.Y);
+            (float)arrow.Start.X * s, (float)arrow.Start.Y * s,
+            (float)arrow.End.X * s, (float)arrow.End.Y * s);
 
         // Draw arrowhead as filled triangle
         double dx = arrow.End.X - arrow.Start.X;
@@ -1031,15 +1036,15 @@ public sealed partial class ScreenshotEditorWindow : Window
 
         double ux = dx / length;
         double uy = dy / length;
-        double headLen = Math.Max(arrow.Thickness * 4, 12);
-        double headW = Math.Max(arrow.Thickness * 2.5, 8);
+        double headLen = Math.Max(arrow.Thickness * 4, 12) * s;
+        double headW = Math.Max(arrow.Thickness * 2.5, 8) * s;
 
-        var baseX = (float)(arrow.End.X - ux * headLen);
-        var baseY = (float)(arrow.End.Y - uy * headLen);
+        var baseX = (float)(arrow.End.X * s - ux * headLen);
+        var baseY = (float)(arrow.End.Y * s - uy * headLen);
 
         var headPoints = new[]
         {
-            new PointF((float)arrow.End.X, (float)arrow.End.Y),
+            new PointF((float)arrow.End.X * s, (float)arrow.End.Y * s),
             new PointF((float)(baseX + uy * headW), (float)(baseY - ux * headW)),
             new PointF((float)(baseX - uy * headW), (float)(baseY + ux * headW))
         };
@@ -1047,12 +1052,12 @@ public sealed partial class ScreenshotEditorWindow : Window
         g.FillPolygon(brush, headPoints);
     }
 
-    private void CompositeBlur(BlurAction blur)
+    private void CompositeBlur(BlurAction blur, float s)
     {
-        int x = Math.Max(0, (int)blur.Region.X);
-        int y = Math.Max(0, (int)blur.Region.Y);
-        int w = Math.Min((int)blur.Region.Width, _imageWidth - x);
-        int h = Math.Min((int)blur.Region.Height, _imageHeight - y);
+        int x = Math.Max(0, (int)(blur.Region.X * s));
+        int y = Math.Max(0, (int)(blur.Region.Y * s));
+        int w = Math.Min((int)(blur.Region.Width * s), _imageWidth - x);
+        int h = Math.Min((int)(blur.Region.Height * s), _imageHeight - y);
         if (w <= 0 || h <= 0) return;
 
         var sourceRect = new System.Drawing.Rectangle(x, y, w, h);
@@ -1063,11 +1068,11 @@ public sealed partial class ScreenshotEditorWindow : Window
         g.DrawImage(pixelated, x, y, w, h);
     }
 
-    private static void CompositeText(Graphics g, TextAction text)
+    private static void CompositeText(Graphics g, TextAction text, float s)
     {
         using var brush = new SolidBrush(ToDrawingColor(text.Color));
-        using var font = new Font("Segoe UI", (float)text.FontSize * 0.75f, FontStyle.Bold, GraphicsUnit.Point);
-        g.DrawString(text.Text, font, brush, (float)text.Position.X, (float)text.Position.Y);
+        using var font = new Font("Segoe UI", (float)text.FontSize * 0.75f * s, FontStyle.Bold, GraphicsUnit.Point);
+        g.DrawString(text.Text, font, brush, (float)text.Position.X * s, (float)text.Position.Y * s);
     }
 
     private static System.Drawing.Color ToDrawingColor(Windows.UI.Color c)

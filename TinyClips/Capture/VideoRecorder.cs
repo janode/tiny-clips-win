@@ -21,6 +21,7 @@ public sealed class VideoRecorder : IDisposable
     private bool _recordAudio;
     private SystemAudioCapture? _audioCapture;
     private DateTime _startTime;
+    private Exception? _captureError;
 
     public bool IsRecording => _isRecording;
     public TimeSpan Elapsed => _isRecording ? DateTime.Now - _startTime : TimeSpan.Zero;
@@ -74,11 +75,16 @@ public sealed class VideoRecorder : IDisposable
         _audioCapture?.Dispose();
         _audioCapture = null;
 
+        if (_captureError != null)
+            throw new InvalidOperationException($"Recording failed: {_captureError.Message}", _captureError);
+
         return Task.FromResult(_outputPath ?? string.Empty);
     }
 
     private void CaptureLoop()
     {
+        try
+        {
         Marshal.ThrowExceptionForHR(MFStartup(MF_VERSION, 0));
         try
         {
@@ -145,6 +151,12 @@ public sealed class VideoRecorder : IDisposable
         finally
         {
             MFShutdown();
+        }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"VideoRecorder CaptureLoop error: {ex.Message}");
+            _captureError = ex;
         }
     }
 

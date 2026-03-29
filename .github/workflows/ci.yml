@@ -24,10 +24,16 @@ jobs:
           dotnet-quality: 'preview'
 
       - name: Restore dependencies
-        run: dotnet restore TinyClips/TinyClips.csproj -p:Platform=${{ matrix.platform }}
+        run: |
+          dotnet restore TinyClips/TinyClips.csproj -p:Platform=${{ matrix.platform }}
+          dotnet restore TinyClips.Tests/TinyClips.Tests.csproj -p:Platform=${{ matrix.platform }}
 
       - name: Build
         run: dotnet build TinyClips/TinyClips.csproj -c ${{ matrix.configuration }} -p:Platform=${{ matrix.platform }} --no-restore
+
+      - name: Run tests
+        if: matrix.platform == 'x64'
+        run: dotnet test TinyClips.Tests/TinyClips.Tests.csproj -c ${{ matrix.configuration }} -p:Platform=${{ matrix.platform }} --no-restore --verbosity normal
 
       - name: Upload build artifacts
         if: matrix.configuration == 'Release'

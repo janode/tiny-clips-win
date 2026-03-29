@@ -36,7 +36,7 @@ public sealed partial class SettingsWindow : Window
         // DPI-aware sizing immediately (before Activate)
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
         double scale = Helpers.NativeMethods.GetDpiForWindow(hwnd) / 96.0;
-        AppWindow.Resize(new Windows.Graphics.SizeInt32((int)(900 * scale), (int)(620 * scale)));
+        AppWindow.Resize(new Windows.Graphics.SizeInt32((int)(900 * scale), (int)(700 * scale)));
 
         // Enforce minimum window size (720×460) via WM_GETMINMAXINFO
         _subclassProc = MinSizeSubclassProc;

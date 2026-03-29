@@ -451,19 +451,27 @@ public sealed class CaptureManager : IDisposable
 
     private void ShowVideoTrimmer(string videoPath)
     {
-        DismissVideoTrimmer();
-        var trimmer = new VideoTrimmerWindow(videoPath);
-        trimmer.OnSaved = path =>
+        try
         {
-            _videoTrimmerWindow = null;
-            SaveService.Instance.HandleSavedFile(path, CaptureType.Video);
-        };
-        trimmer.OnDiscarded = () =>
+            DismissVideoTrimmer();
+            var trimmer = new VideoTrimmerWindow(videoPath);
+            trimmer.OnSaved = path =>
+            {
+                _videoTrimmerWindow = null;
+                SaveService.Instance.HandleSavedFile(path, CaptureType.Video);
+            };
+            trimmer.OnDiscarded = () =>
+            {
+                _videoTrimmerWindow = null;
+            };
+            _videoTrimmerWindow = trimmer;
+            trimmer.Activate();
+        }
+        catch (Exception ex)
         {
-            _videoTrimmerWindow = null;
-        };
-        _videoTrimmerWindow = trimmer;
-        trimmer.Activate();
+            NotificationService.Instance.ShowErrorNotification($"Could not open video trimmer: {ex.Message}");
+            SaveService.Instance.HandleSavedFile(videoPath, CaptureType.Video);
+        }
     }
 
     private void DismissVideoTrimmer()

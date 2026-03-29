@@ -166,7 +166,7 @@ public sealed class GifWriter : IDisposable
         });
     }
 
-    private static Image<Rgba32> BgraToImageSharp(byte[] bgraPixels, int width, int height)
+    internal static Image<Rgba32> BgraToImageSharp(byte[] bgraPixels, int width, int height)
     {
         var image = new Image<Rgba32>(width, height);
         int stride = width * 4;

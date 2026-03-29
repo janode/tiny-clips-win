@@ -54,7 +54,7 @@ public static class UpdateChecker
         }
     }
 
-    private static Version? ParseVersion(string tag)
+    internal static Version? ParseVersion(string tag)
     {
         // Strip leading 'v' if present: "v1.2.3" → "1.2.3"
         var versionStr = tag.StartsWith('v') ? tag[1..] : tag;
