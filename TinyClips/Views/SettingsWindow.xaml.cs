@@ -1,5 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using System.Runtime.InteropServices;
 using TinyClips.Models;
 using TinyClips.Services;
 using Windows.Storage.Pickers;
@@ -15,6 +16,10 @@ public sealed partial class SettingsWindow : Window
 {
     private readonly CaptureSettings _settings;
     private bool _isLoading = true;
+    private Helpers.NativeMethods.SUBCLASSPROC? _subclassProc;
+    private ShortcutRecorderControl _screenshotRecorder = null!;
+    private ShortcutRecorderControl _videoRecorder = null!;
+    private ShortcutRecorderControl _gifRecorder = null!;
 
     // All setting pages
     private readonly StackPanel[] _pages;
@@ -23,6 +28,7 @@ public sealed partial class SettingsWindow : Window
     {
         InitializeComponent();
         Title = "TinyClips Settings";
+        this.SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
         _settings = CaptureSettings.Instance;
 
         _pages = [GeneralPage, ScreenshotPage, VideoPage, GifPage, ShortcutsPage, AboutPage];
@@ -32,11 +38,28 @@ public sealed partial class SettingsWindow : Window
         double scale = Helpers.NativeMethods.GetDpiForWindow(hwnd) / 96.0;
         AppWindow.Resize(new Windows.Graphics.SizeInt32((int)(900 * scale), (int)(620 * scale)));
 
+        // Enforce minimum window size (720×460) via WM_GETMINMAXINFO
+        _subclassProc = MinSizeSubclassProc;
+        Helpers.NativeMethods.SetWindowSubclass(hwnd, _subclassProc, 0, 0);
+
         LoadSettings();
         _isLoading = false;
 
         // Select first item
         NavView.SelectedItem = NavView.MenuItems[0];
+    }
+
+    private nint MinSizeSubclassProc(nint hWnd, uint uMsg, nint wParam, nint lParam, nint uIdSubclass, nint dwRefData)
+    {
+        if (uMsg == Helpers.NativeMethods.WM_GETMINMAXINFO)
+        {
+            double scale = Helpers.NativeMethods.GetDpiForWindow(hWnd) / 96.0;
+            var mmi = Marshal.PtrToStructure<Helpers.NativeMethods.MINMAXINFO>(lParam);
+            mmi.ptMinTrackSize.X = (int)(720 * scale);
+            mmi.ptMinTrackSize.Y = (int)(460 * scale);
+            Marshal.StructureToPtr(mmi, lParam, false);
+        }
+        return Helpers.NativeMethods.DefSubclassProc(hWnd, uMsg, wParam, lParam);
     }
 
     // MARK: - Navigation
@@ -88,18 +111,23 @@ public sealed partial class SettingsWindow : Window
         SystemAudioToggle.IsOn = _settings.RecordSystemAudio;
         VideoCountdownToggle.IsOn = _settings.VideoCountdownEnabled;
         VideoCountdownBox.Value = _settings.VideoCountdownDuration;
+        VideoTrimmerToggle.IsOn = _settings.ShowVideoTrimmer;
 
         // GIF
         SelectFpsComboItem(GifFpsCombo, _settings.GifFrameRate);
         GifMaxWidthBox.Value = _settings.GifMaxWidth;
         GifCountdownToggle.IsOn = _settings.GifCountdownEnabled;
         GifCountdownBox.Value = _settings.GifCountdownDuration;
+        GifTrimmerToggle.IsOn = _settings.ShowGifTrimmer;
 
         // Shortcuts
-        UpdateShortcutLabels();
+        SetupShortcutRecorders();
 
         // About
         VersionLabel.Text = "Version 1.0.0";
+        LoadAppIcon();
+
+        UpdateFileNamePreview();
     }
 
     private static void SelectFpsComboItem(ComboBox combo, double fps)
@@ -115,33 +143,79 @@ public sealed partial class SettingsWindow : Window
         combo.SelectedIndex = 0;
     }
 
-    private void UpdateShortcutLabels()
+    // MARK: - Shortcut Recorders
+
+    private void SetupShortcutRecorders()
     {
-        ScreenshotShortcutLabel.Text = FormatHotKey(_settings.ScreenshotHotKeyMod, _settings.ScreenshotHotKeyVk);
-        VideoShortcutLabel.Text = FormatHotKey(_settings.VideoHotKeyMod, _settings.VideoHotKeyVk);
-        GifShortcutLabel.Text = FormatHotKey(_settings.GifHotKeyMod, _settings.GifHotKeyVk);
+        _screenshotRecorder = new ShortcutRecorderControl();
+        _screenshotRecorder.SetShortcut(_settings.ScreenshotHotKeyMod, _settings.ScreenshotHotKeyVk);
+        _screenshotRecorder.OnShortcutChanged = (mod, vk) =>
+        {
+            _settings.ScreenshotHotKeyMod = mod;
+            _settings.ScreenshotHotKeyVk = vk;
+            SaveSettings();
+            CheckShortcutConflicts();
+            App.Current.CaptureManager.ReloadHotKeys();
+        };
+        ScreenshotRecorderHost.Content = _screenshotRecorder;
+
+        _videoRecorder = new ShortcutRecorderControl();
+        _videoRecorder.SetShortcut(_settings.VideoHotKeyMod, _settings.VideoHotKeyVk);
+        _videoRecorder.OnShortcutChanged = (mod, vk) =>
+        {
+            _settings.VideoHotKeyMod = mod;
+            _settings.VideoHotKeyVk = vk;
+            SaveSettings();
+            CheckShortcutConflicts();
+            App.Current.CaptureManager.ReloadHotKeys();
+        };
+        VideoRecorderHost.Content = _videoRecorder;
+
+        _gifRecorder = new ShortcutRecorderControl();
+        _gifRecorder.SetShortcut(_settings.GifHotKeyMod, _settings.GifHotKeyVk);
+        _gifRecorder.OnShortcutChanged = (mod, vk) =>
+        {
+            _settings.GifHotKeyMod = mod;
+            _settings.GifHotKeyVk = vk;
+            SaveSettings();
+            CheckShortcutConflicts();
+            App.Current.CaptureManager.ReloadHotKeys();
+        };
+        GifRecorderHost.Content = _gifRecorder;
+
+        CheckShortcutConflicts();
     }
 
-    private static string FormatHotKey(int mod, int vk)
+    private void CheckShortcutConflicts()
     {
-        var parts = new System.Collections.Generic.List<string>();
-        if ((mod & 0x0002) != 0) parts.Add("Ctrl");
-        if ((mod & 0x0001) != 0) parts.Add("Alt");
-        if ((mod & 0x0004) != 0) parts.Add("Shift");
-        if ((mod & 0x0008) != 0) parts.Add("Win");
-
-        // Virtual key to readable name
-        string keyName = vk switch
+        var shortcuts = new (string Name, int Mod, int Vk, TextBlock ConflictText)[]
         {
-            >= 0x30 and <= 0x39 => ((char)vk).ToString(), // 0-9
-            >= 0x41 and <= 0x5A => ((char)vk).ToString(), // A-Z
-            >= 0x70 and <= 0x87 => $"F{vk - 0x6F}",      // F1-F24
-            0xBE => ".",
-            0xBC => ",",
-            _ => $"0x{vk:X2}"
+            ("Screenshot", _settings.ScreenshotHotKeyMod, _settings.ScreenshotHotKeyVk, ScreenshotConflictText),
+            ("Video", _settings.VideoHotKeyMod, _settings.VideoHotKeyVk, VideoConflictText),
+            ("GIF", _settings.GifHotKeyMod, _settings.GifHotKeyVk, GifConflictText)
         };
-        parts.Add(keyName);
-        return string.Join(" + ", parts);
+
+        for (int i = 0; i < shortcuts.Length; i++)
+        {
+            string? conflict = null;
+            for (int j = 0; j < shortcuts.Length; j++)
+            {
+                if (i != j && shortcuts[i].Mod == shortcuts[j].Mod && shortcuts[i].Vk == shortcuts[j].Vk)
+                {
+                    conflict = $"Conflicts with {shortcuts[j].Name}";
+                    break;
+                }
+            }
+            if (conflict != null)
+            {
+                shortcuts[i].ConflictText.Text = conflict;
+                shortcuts[i].ConflictText.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                shortcuts[i].ConflictText.Visibility = Visibility.Collapsed;
+            }
+        }
     }
 
     // MARK: - General Events
@@ -169,6 +243,12 @@ public sealed partial class SettingsWindow : Window
         if (_isLoading) return;
         _settings.FileNameTemplate = FileNameTemplateBox.Text;
         SaveSettings();
+        UpdateFileNamePreview();
+    }
+
+    private void UpdateFileNamePreview()
+    {
+        FileNamePreviewText.Text = SaveService.Instance.NamingPreview();
     }
 
     private void OnCopyClipboardToggled(object sender, RoutedEventArgs e)
@@ -281,6 +361,13 @@ public sealed partial class SettingsWindow : Window
         SaveSettings();
     }
 
+    private void OnVideoTrimmerToggled(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.ShowVideoTrimmer = VideoTrimmerToggle.IsOn;
+        SaveSettings();
+    }
+
     // MARK: - GIF Events
 
     private void OnGifFpsChanged(object sender, SelectionChangedEventArgs e)
@@ -314,13 +401,31 @@ public sealed partial class SettingsWindow : Window
         SaveSettings();
     }
 
+    private void OnGifTrimmerToggled(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.ShowGifTrimmer = GifTrimmerToggle.IsOn;
+        SaveSettings();
+    }
+
     // MARK: - Shortcuts Events
 
     private void OnResetShortcuts(object sender, RoutedEventArgs e)
     {
-        _settings.ResetToDefaults();
-        LoadSettings();
+        var fresh = new CaptureSettings();
+        _settings.ScreenshotHotKeyVk = fresh.ScreenshotHotKeyVk;
+        _settings.ScreenshotHotKeyMod = fresh.ScreenshotHotKeyMod;
+        _settings.VideoHotKeyVk = fresh.VideoHotKeyVk;
+        _settings.VideoHotKeyMod = fresh.VideoHotKeyMod;
+        _settings.GifHotKeyVk = fresh.GifHotKeyVk;
+        _settings.GifHotKeyMod = fresh.GifHotKeyMod;
         SaveSettings();
+
+        _screenshotRecorder.SetShortcut(_settings.ScreenshotHotKeyMod, _settings.ScreenshotHotKeyVk);
+        _videoRecorder.SetShortcut(_settings.VideoHotKeyMod, _settings.VideoHotKeyVk);
+        _gifRecorder.SetShortcut(_settings.GifHotKeyMod, _settings.GifHotKeyVk);
+        CheckShortcutConflicts();
+        App.Current.CaptureManager.ReloadHotKeys();
     }
 
     // MARK: - Save
@@ -328,5 +433,14 @@ public sealed partial class SettingsWindow : Window
     private void SaveSettings()
     {
         _settings.Save();
+    }
+
+    private void LoadAppIcon()
+    {
+        var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "tinyclips-store-icon.png");
+        if (File.Exists(iconPath))
+        {
+            AppIcon.Source = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(iconPath));
+        }
     }
 }

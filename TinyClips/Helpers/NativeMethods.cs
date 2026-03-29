@@ -37,6 +37,7 @@ internal static partial class NativeMethods
 
     // Messages
     public const int WM_HOTKEY = 0x0312;
+    public const int WM_GETMINMAXINFO = 0x0024;
 
     // Monitor info
     public const int MONITOR_DEFAULTTOPRIMARY = 1;
@@ -96,11 +97,35 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     public static partial uint GetDpiForWindow(nint hwnd);
 
+    // Window subclassing for min/max size enforcement
+    public delegate nint SUBCLASSPROC(nint hWnd, uint uMsg, nint wParam, nint lParam, nint uIdSubclass, nint dwRefData);
+
+    [LibraryImport("comctl32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetWindowSubclass(nint hWnd, SUBCLASSPROC pfnSubclass, nint uIdSubclass, nint dwRefData);
+
+    [LibraryImport("comctl32.dll")]
+    public static partial nint DefSubclassProc(nint hWnd, uint uMsg, nint wParam, nint lParam);
+
+    [LibraryImport("comctl32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool RemoveWindowSubclass(nint hWnd, SUBCLASSPROC pfnSubclass, nint uIdSubclass);
+
     [StructLayout(LayoutKind.Sequential)]
     public struct POINT
     {
         public int X;
         public int Y;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MINMAXINFO
+    {
+        public POINT ptReserved;
+        public POINT ptMaxSize;
+        public POINT ptMaxPosition;
+        public POINT ptMinTrackSize;
+        public POINT ptMaxTrackSize;
     }
 
     [StructLayout(LayoutKind.Sequential)]

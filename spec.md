@@ -124,7 +124,7 @@
 - [x] ~~Three mode buttons: Region, Screen, Window~~
 - [x] ~~Countdown toggle with duration selector~~
 - [x] ~~Keyboard shortcuts: R, S, W, Esc~~
-- [ ] Mica/Acrylic backdrop
+- [x] ~~Mica/Acrylic backdrop~~
 - [x] ~~Remembers last position across sessions~~
 - [x] ~~Smooth appear/dismiss animation~~
 
@@ -158,9 +158,9 @@
 - [x] ~~Stop Recording: registered dynamically during active recording~~
 
 ### 6.2 Customization
-- [ ] Custom shortcut recorder field in Settings → Shortcuts
-- [ ] Conflict detection (warns if shortcut is already in use)
-- [ ] Reset to defaults button
+- [x] ~~Custom shortcut recorder field in Settings → Shortcuts~~
+- [x] ~~Conflict detection (warns if shortcut is already in use)~~
+- [x] ~~Reset to defaults button~~
 
 ### 6.3 Implementation
 - [x] ~~Win32 `RegisterHotKey` / `UnregisterHotKey` via P/Invoke~~
@@ -174,14 +174,14 @@
 ### 7.1 Layout
 - [x] ~~Standalone WinUI 3 Window with `NavigationView` sidebar~~
 - [x] ~~Tabs: General, Screenshot, Video, GIF, Shortcuts, About~~
-- [ ] Mica backdrop
-- [ ] Minimum window size enforced (720×460)
+- [x] ~~Mica backdrop~~
+- [x] ~~Minimum window size enforced (720×460)~~
 
 ### 7.2 General Tab
 - [x] ~~Save directory path display~~
-- [ ] Browse button with `FolderPicker` dialog
+- [x] ~~Browse button with `FolderPicker` dialog~~
 - [x] ~~File name template with `{date}`, `{time}`, `{type}` tokens~~
-- [ ] Live preview of generated file name
+- [x] ~~Live preview of generated file name~~
 - [x] ~~Show save notifications toggle~~
 - [x] ~~Launch at startup toggle~~
 - [x] ~~Always capture main display toggle~~
@@ -208,13 +208,13 @@
 
 ### 7.6 Shortcuts Tab
 - [x] ~~Display current hotkey assignments~~
-- [ ] Editable shortcut recorder fields
-- [ ] Conflict detection
+- [x] ~~Editable shortcut recorder fields~~
+- [x] ~~Conflict detection~~
 
 ### 7.7 About Tab
 - [x] ~~App name + version~~
 - [x] ~~GitHub / Issues / Privacy links~~
-- [ ] Custom app icon display
+- [x] ~~Custom app icon display~~
 
 ---
 
@@ -248,7 +248,7 @@
 ### 9.3 Save Location
 - [x] ~~Default: user's Desktop~~
 - [x] ~~Configurable in Settings~~
-- [ ] Folder picker dialog
+- [x] ~~Folder picker dialog~~
 
 ---
 
@@ -328,13 +328,13 @@
 | Screenshot Capture | 16 | 16 | 0 |
 | Video Recording | 13 | 10 | 3 |
 | GIF Recording | 10 | 9 | 1 |
-| Floating Panels | 17 | 17 | 0 |
-| Global Hotkeys | 7 | 5 | 2 |
-| Settings Window | 19 | 15 | 4 |
+| Floating Panels | 18 | 18 | 0 |
+| Global Hotkeys | 7 | 7 | 0 |
+| Settings Window | 19 | 19 | 0 |
 | Notifications & Clipboard | 6 | 5 | 1 |
-| File Management | 8 | 7 | 1 |
+| File Management | 8 | 8 | 0 |
 | Onboarding | 6 | 1 | 5 |
 | Accessibility | 5 | 0 | 5 |
 | Multi-Monitor & DPI | 5 | 1 | 4 |
 | Distribution | 8 | 6 | 2 |
-| **Total** | **130** | **103** | **27** |
+| **Total** | **130** | **114** | **16** |

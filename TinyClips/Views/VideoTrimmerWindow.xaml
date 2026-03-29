@@ -1,0 +1,135 @@
+<Window
+    x:Class="TinyClips.Views.VideoTrimmerWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="TinyClips — Trim Video">
+
+    <Grid Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- MARK: Toolbar -->
+        <Grid Grid.Row="0" Padding="12,8"
+              Background="{ThemeResource LayerFillColorDefaultBrush}"
+              BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button x:Name="PlayPauseButton" Click="OnPlayPauseClick" Padding="8,6" CornerRadius="6"
+                        ToolTipService.ToolTip="Play/Pause (Space)">
+                    <FontIcon x:Name="PlayPauseIcon" Glyph="&#xE768;" FontSize="16" />
+                </Button>
+                <TextBlock x:Name="TimeLabel" Text="00:00.0 / 00:00.0" VerticalAlignment="Center"
+                           FontSize="13" FontFamily="Consolas" Opacity="0.8" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8">
+                <Button Click="OnDiscardClick" Padding="12,6" CornerRadius="6">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <FontIcon Glyph="&#xE711;" FontSize="12" />
+                        <TextBlock Text="Discard" FontSize="12" />
+                    </StackPanel>
+                </Button>
+                <Button x:Name="SaveButton" Click="OnSaveClick" Style="{ThemeResource AccentButtonStyle}"
+                        Padding="12,6" CornerRadius="6">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <FontIcon Glyph="&#xE74E;" FontSize="12" />
+                        <TextBlock Text="Save" FontSize="12" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+
+        <!-- MARK: Video Player -->
+        <Grid Grid.Row="1" Background="#1E1E1E">
+            <MediaPlayerElement x:Name="VideoPlayer" AutoPlay="False"
+                                AreTransportControlsEnabled="False"
+                                Stretch="Uniform"
+                                HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center"
+                        x:Name="RenderOverlay" Visibility="Collapsed">
+                <ProgressRing IsActive="True" Width="48" Height="48" />
+                <TextBlock Text="Trimming video..." FontSize="13" Opacity="0.7"
+                           HorizontalAlignment="Center" Margin="0,12,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <!-- MARK: Timeline Controls -->
+        <Grid Grid.Row="2" Padding="16,12"
+              Background="{ThemeResource LayerFillColorAltBrush}"
+              BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Trim range indicator -->
+            <Grid x:Name="TrimRangeContainer" Grid.Row="0" Height="6" CornerRadius="3"
+                  Background="{ThemeResource ControlStrokeColorDefaultBrush}" Margin="0,0,0,4"
+                  SizeChanged="OnTrimRangeContainerSizeChanged">
+                <Border x:Name="TrimRangeBar" Background="{ThemeResource AccentFillColorDefaultBrush}"
+                        HorizontalAlignment="Left" CornerRadius="3" />
+            </Grid>
+
+            <!-- Position slider -->
+            <Slider x:Name="PositionSlider" Grid.Row="1" Minimum="0" Maximum="100"
+                    ValueChanged="OnPositionSliderChanged" Margin="0,0,0,4" />
+
+            <!-- Trim info -->
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="12" Margin="0,0,0,8">
+                <TextBlock FontSize="12" Opacity="0.7">
+                    <Run Text="Start: " /><Run x:Name="TrimStartTime" Text="00:00.0" FontFamily="Consolas" />
+                </TextBlock>
+                <TextBlock FontSize="12" Opacity="0.7">
+                    <Run Text="End: " /><Run x:Name="TrimEndTime" Text="00:00.0" FontFamily="Consolas" />
+                </TextBlock>
+                <TextBlock FontSize="12" Opacity="0.5" Text="·" />
+                <TextBlock FontSize="12" Opacity="0.7">
+                    <Run Text="Selected: " /><Run x:Name="TrimDuration" Text="0.0s" FontFamily="Consolas" />
+                </TextBlock>
+            </StackPanel>
+
+            <!-- Trim buttons -->
+            <StackPanel Grid.Row="3" Orientation="Horizontal" Spacing="8">
+                <Button Click="OnSetStartClick" Padding="10,5" CornerRadius="6"
+                        ToolTipService.ToolTip="Set trim start at current position (I)">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <FontIcon Glyph="&#xE892;" FontSize="12" />
+                        <TextBlock Text="Set Start" FontSize="12" />
+                    </StackPanel>
+                </Button>
+                <Button Click="OnSetEndClick" Padding="10,5" CornerRadius="6"
+                        ToolTipService.ToolTip="Set trim end at current position (O)">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <FontIcon Glyph="&#xE893;" FontSize="12" />
+                        <TextBlock Text="Set End" FontSize="12" />
+                    </StackPanel>
+                </Button>
+                <Button Click="OnResetTrimClick" Padding="10,5" CornerRadius="6"
+                        ToolTipService.ToolTip="Reset trim points">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <FontIcon Glyph="&#xE777;" FontSize="12" />
+                        <TextBlock Text="Reset" FontSize="12" />
+                    </StackPanel>
+                </Button>
+                <AppBarSeparator />
+                <Button Click="OnPreviewTrimClick" Padding="10,5" CornerRadius="6"
+                        ToolTipService.ToolTip="Play only the trimmed section">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <FontIcon Glyph="&#xE714;" FontSize="12" />
+                        <TextBlock Text="Preview Trim" FontSize="12" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

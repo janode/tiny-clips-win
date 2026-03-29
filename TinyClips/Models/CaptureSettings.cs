@@ -49,6 +49,7 @@ public sealed class CaptureSettings
     public bool ShowRegionIndicator { get; set; } = true;
     public bool VideoCountdownEnabled { get; set; } = true;
     public int VideoCountdownDuration { get; set; } = 3;
+    public bool ShowVideoTrimmer { get; set; } = true;
 
     // MARK: - GIF
 
@@ -56,6 +57,7 @@ public sealed class CaptureSettings
     public int GifMaxWidth { get; set; } = 640;
     public bool GifCountdownEnabled { get; set; } = true;
     public int GifCountdownDuration { get; set; } = 3;
+    public bool ShowGifTrimmer { get; set; } = true;
 
     // MARK: - Shortcuts (Win32 virtual key codes + modifier flags)
     // Defaults: Ctrl+Alt+Shift+5/6/7
@@ -140,10 +142,12 @@ public sealed class CaptureSettings
         ShowRegionIndicator = fresh.ShowRegionIndicator;
         VideoCountdownEnabled = fresh.VideoCountdownEnabled;
         VideoCountdownDuration = fresh.VideoCountdownDuration;
+        ShowVideoTrimmer = fresh.ShowVideoTrimmer;
         GifFrameRate = fresh.GifFrameRate;
         GifMaxWidth = fresh.GifMaxWidth;
         GifCountdownEnabled = fresh.GifCountdownEnabled;
         GifCountdownDuration = fresh.GifCountdownDuration;
+        ShowGifTrimmer = fresh.ShowGifTrimmer;
         ScreenshotHotKeyVk = fresh.ScreenshotHotKeyVk;
         ScreenshotHotKeyMod = fresh.ScreenshotHotKeyMod;
         VideoHotKeyVk = fresh.VideoHotKeyVk;

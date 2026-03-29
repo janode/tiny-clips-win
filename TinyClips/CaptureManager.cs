@@ -25,6 +25,8 @@ public sealed class CaptureManager : IDisposable
     private StartRecordingWindow? _startWindow;
     private StopRecordingWindow? _stopWindow;
     private ScreenshotEditorWindow? _editorWindow;
+    private VideoTrimmerWindow? _videoTrimmerWindow;
+    private GifTrimmerWindow? _gifTrimmerWindow;
     private CaptureRegion? _pendingRegion;
     private readonly HotKeyManager _hotKeyManager = new();
 
@@ -199,7 +201,8 @@ public sealed class CaptureManager : IDisposable
                     _stopWindow?.UpdateElapsed(elapsed));
             };
 
-            await recorder.StartAsync(region.ScreenRect, path, settings.VideoFrameRate);
+            await recorder.StartAsync(region.ScreenRect, path, settings.VideoFrameRate,
+                recordAudio: settings.RecordSystemAudio);
             ShowStopPanel();
         }
         catch (Exception ex)
@@ -293,7 +296,12 @@ public sealed class CaptureManager : IDisposable
             {
                 string? path = await recorder.StopAsync();
                 if (path != null)
-                    SaveService.Instance.HandleSavedFile(path, CaptureType.Video);
+                {
+                    if (CaptureSettings.Instance.ShowVideoTrimmer)
+                        ShowVideoTrimmer(path);
+                    else
+                        SaveService.Instance.HandleSavedFile(path, CaptureType.Video);
+                }
             }
             catch (Exception ex)
             {
@@ -307,7 +315,10 @@ public sealed class CaptureManager : IDisposable
             try
             {
                 string path = await writer.StopAsync();
-                SaveService.Instance.HandleSavedFile(path, CaptureType.Gif);
+                if (CaptureSettings.Instance.ShowGifTrimmer)
+                    ShowGifTrimmer(path);
+                else
+                    SaveService.Instance.HandleSavedFile(path, CaptureType.Gif);
             }
             catch (Exception ex)
             {
@@ -436,12 +447,64 @@ public sealed class CaptureManager : IDisposable
         _editorWindow = null;
     }
 
+    // MARK: - Video Trimmer
+
+    private void ShowVideoTrimmer(string videoPath)
+    {
+        DismissVideoTrimmer();
+        var trimmer = new VideoTrimmerWindow(videoPath);
+        trimmer.OnSaved = path =>
+        {
+            _videoTrimmerWindow = null;
+            SaveService.Instance.HandleSavedFile(path, CaptureType.Video);
+        };
+        trimmer.OnDiscarded = () =>
+        {
+            _videoTrimmerWindow = null;
+        };
+        _videoTrimmerWindow = trimmer;
+        trimmer.Activate();
+    }
+
+    private void DismissVideoTrimmer()
+    {
+        try { _videoTrimmerWindow?.Close(); } catch { }
+        _videoTrimmerWindow = null;
+    }
+
+    // MARK: - GIF Trimmer
+
+    private void ShowGifTrimmer(string gifPath)
+    {
+        DismissGifTrimmer();
+        var trimmer = new GifTrimmerWindow(gifPath);
+        trimmer.OnSaved = path =>
+        {
+            _gifTrimmerWindow = null;
+            SaveService.Instance.HandleSavedFile(path, CaptureType.Gif);
+        };
+        trimmer.OnDiscarded = () =>
+        {
+            _gifTrimmerWindow = null;
+        };
+        _gifTrimmerWindow = trimmer;
+        trimmer.Activate();
+    }
+
+    private void DismissGifTrimmer()
+    {
+        try { _gifTrimmerWindow?.Close(); } catch { }
+        _gifTrimmerWindow = null;
+    }
+
     // MARK: - Cleanup
 
     private void PrepareForNewCapture()
     {
         DismissPicker();
         DismissEditor();
+        DismissVideoTrimmer();
+        DismissGifTrimmer();
         try { _startWindow?.Close(); } catch { }
         _startWindow = null;
         _pendingRegion = null;

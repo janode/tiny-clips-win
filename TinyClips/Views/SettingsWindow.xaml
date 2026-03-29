@@ -51,6 +51,7 @@
 
                     <TextBlock Text="File name template" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,16,0,4" />
                     <TextBox x:Name="FileNameTemplateBox" TextChanged="OnFileNameTemplateChanged" PlaceholderText="TinyClips {date} at {time}" AutomationProperties.Name="File name template" />
+                    <TextBlock x:Name="FileNamePreviewText" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" IsTextSelectionEnabled="True" />
 
                     <ToggleSwitch x:Name="CopyToClipboardToggle" Header="Copy to clipboard after capture" Toggled="OnCopyClipboardToggled" Margin="0,16,0,0" />
                     <ToggleSwitch x:Name="ShowInExplorerToggle" Header="Show in Explorer after save" Toggled="OnShowExplorerToggled" />
@@ -96,6 +97,9 @@
                     <ToggleSwitch x:Name="SystemAudioToggle" Header="Record system audio" Toggled="OnSystemAudioToggled" Margin="0,12,0,0" />
                     <ToggleSwitch x:Name="VideoCountdownToggle" Header="Countdown before recording" Toggled="OnVideoCountdownToggled" />
                     <NumberBox x:Name="VideoCountdownBox" Header="Countdown (seconds)" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" ValueChanged="OnVideoCountdownValueChanged" AutomationProperties.Name="Video countdown seconds" />
+
+                    <ToggleSwitch x:Name="VideoTrimmerToggle" Header="Trim before saving" Toggled="OnVideoTrimmerToggled" Margin="0,12,0,0" />
+                    <TextBlock Text="Open the video trimmer (trim start/end) before saving" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,-4,0,0" />
                 </StackPanel>
 
                 <!-- GIF Page -->
@@ -113,11 +117,15 @@
                     <NumberBox x:Name="GifMaxWidthBox" Header="Max width (px)" Minimum="100" Maximum="2560" SpinButtonPlacementMode="Compact" ValueChanged="OnGifMaxWidthChanged" Margin="0,12,0,0" AutomationProperties.Name="GIF max width" />
                     <ToggleSwitch x:Name="GifCountdownToggle" Header="Countdown before recording" Toggled="OnGifCountdownToggled" />
                     <NumberBox x:Name="GifCountdownBox" Header="Countdown (seconds)" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" ValueChanged="OnGifCountdownValueChanged" AutomationProperties.Name="GIF countdown seconds" />
+
+                    <ToggleSwitch x:Name="GifTrimmerToggle" Header="Trim before saving" Toggled="OnGifTrimmerToggled" Margin="0,12,0,0" />
+                    <TextBlock Text="Open the GIF trimmer (trim frames + resize) before saving" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,-4,0,0" />
                 </StackPanel>
 
                 <!-- Shortcuts Page -->
                 <StackPanel x:Name="ShortcutsPage" Spacing="4" Visibility="Collapsed">
                     <TextBlock Text="Shortcuts" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,16" />
+                    <TextBlock Text="Click a shortcut to change it. Press the desired key combination (must include at least one modifier key)." Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,0,0,12" TextWrapping="Wrap" />
 
                     <Grid RowSpacing="12" ColumnSpacing="16">
                         <Grid.ColumnDefinitions>
@@ -131,13 +139,22 @@
                         </Grid.RowDefinitions>
 
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="Screenshot" VerticalAlignment="Center" />
-                        <TextBlock x:Name="ScreenshotShortcutLabel" Grid.Row="0" Grid.Column="1" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.Name="Screenshot shortcut" />
+                        <StackPanel Grid.Row="0" Grid.Column="1" Spacing="4">
+                            <ContentPresenter x:Name="ScreenshotRecorderHost" />
+                            <TextBlock x:Name="ScreenshotConflictText" Foreground="#E74856" FontSize="12" Visibility="Collapsed" />
+                        </StackPanel>
 
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="Video" VerticalAlignment="Center" />
-                        <TextBlock x:Name="VideoShortcutLabel" Grid.Row="1" Grid.Column="1" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.Name="Video shortcut" />
+                        <StackPanel Grid.Row="1" Grid.Column="1" Spacing="4">
+                            <ContentPresenter x:Name="VideoRecorderHost" />
+                            <TextBlock x:Name="VideoConflictText" Foreground="#E74856" FontSize="12" Visibility="Collapsed" />
+                        </StackPanel>
 
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="GIF" VerticalAlignment="Center" />
-                        <TextBlock x:Name="GifShortcutLabel" Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.Name="GIF shortcut" />
+                        <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+                            <ContentPresenter x:Name="GifRecorderHost" />
+                            <TextBlock x:Name="GifConflictText" Foreground="#E74856" FontSize="12" Visibility="Collapsed" />
+                        </StackPanel>
                     </Grid>
 
                     <Button Content="Reset to defaults" Click="OnResetShortcuts" Margin="0,20,0,0" AutomationProperties.Name="Reset shortcuts to defaults" />
@@ -146,6 +163,7 @@
                 <!-- About Page -->
                 <StackPanel x:Name="AboutPage" Spacing="8" Visibility="Collapsed">
                     <TextBlock Text="About" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,16" />
+                    <Image x:Name="AppIcon" Width="64" Height="64" HorizontalAlignment="Left" Margin="0,0,0,8" />
                     <TextBlock Text="TinyClips" FontSize="20" FontWeight="SemiBold" />
                     <TextBlock x:Name="VersionLabel" Text="Version 1.0.0" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.Name="App version" />
                     <TextBlock Text="Screen capture for Windows" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Margin="0,4,0,0" />
