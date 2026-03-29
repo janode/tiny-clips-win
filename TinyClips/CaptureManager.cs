@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Drawing.Imaging;
 using TinyClips.Capture;
 using TinyClips.Models;
 using TinyClips.Services;
@@ -23,6 +24,7 @@ public sealed class CaptureManager : IDisposable
     private CapturePickerWindow? _pickerWindow;
     private StartRecordingWindow? _startWindow;
     private StopRecordingWindow? _stopWindow;
+    private ScreenshotEditorWindow? _editorWindow;
     private CaptureRegion? _pendingRegion;
     private readonly HotKeyManager _hotKeyManager = new();
 
@@ -116,6 +118,14 @@ public sealed class CaptureManager : IDisposable
         try
         {
             var settings = CaptureSettings.Instance;
+
+            if (settings.ShowScreenshotEditor)
+            {
+                var bitmap = await ScreenshotCapture.CaptureRegionToBitmapAsync(region);
+                ShowScreenshotEditor(bitmap);
+                return;
+            }
+
             string path = SaveService.Instance.GeneratePath(CaptureType.Screenshot);
             await ScreenshotCapture.CaptureRegionAsync(region, path);
             SaveService.Instance.HandleSavedFile(path, CaptureType.Screenshot);
@@ -399,11 +409,39 @@ public sealed class CaptureManager : IDisposable
         _stopWindow = null;
     }
 
+    // MARK: - Screenshot Editor
+
+    private void ShowScreenshotEditor(System.Drawing.Bitmap bitmap)
+    {
+        DismissEditor();
+        var editor = new ScreenshotEditorWindow(bitmap);
+        editor.OnSaved = path =>
+        {
+            _editorWindow = null;
+            SaveService.Instance.HandleSavedFile(path, CaptureType.Screenshot);
+            ShowPicker(CaptureType.Screenshot);
+        };
+        editor.OnDiscarded = () =>
+        {
+            _editorWindow = null;
+            ShowPicker(CaptureType.Screenshot);
+        };
+        _editorWindow = editor;
+        editor.Activate();
+    }
+
+    private void DismissEditor()
+    {
+        try { _editorWindow?.Close(); } catch { }
+        _editorWindow = null;
+    }
+
     // MARK: - Cleanup
 
     private void PrepareForNewCapture()
     {
         DismissPicker();
+        DismissEditor();
         try { _startWindow?.Close(); } catch { }
         _startWindow = null;
         _pendingRegion = null;

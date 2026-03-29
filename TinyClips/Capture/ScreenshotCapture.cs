@@ -26,6 +26,15 @@ public static class ScreenshotCapture
     }
 
     /// <summary>
+    /// Capture a region and return the bitmap without saving.
+    /// Caller is responsible for disposing the returned bitmap.
+    /// </summary>
+    public static Task<Bitmap> CaptureRegionToBitmapAsync(CaptureRegion region)
+    {
+        return Task.Run(() => CaptureScreenRect(region.ScreenRect));
+    }
+
+    /// <summary>
     /// Capture an entire monitor identified by its bounds.
     /// </summary>
     public static Task<string> CaptureScreenAsync(Rectangle screenBounds, string outputPath)

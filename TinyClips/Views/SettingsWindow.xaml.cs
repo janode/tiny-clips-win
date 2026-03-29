@@ -81,6 +81,7 @@ public sealed partial class SettingsWindow : Window
             ? Visibility.Visible : Visibility.Collapsed;
         ScreenshotCountdownToggle.IsOn = _settings.ScreenshotCountdownEnabled;
         ScreenshotCountdownBox.Value = _settings.ScreenshotCountdownDuration;
+        ScreenshotEditorToggle.IsOn = _settings.ShowScreenshotEditor;
 
         // Video
         SelectFpsComboItem(VideoFpsCombo, _settings.VideoFrameRate);
@@ -237,6 +238,13 @@ public sealed partial class SettingsWindow : Window
     {
         if (_isLoading) return;
         _settings.ScreenshotCountdownDuration = (int)ScreenshotCountdownBox.Value;
+        SaveSettings();
+    }
+
+    private void OnScreenshotEditorToggled(object sender, RoutedEventArgs e)
+    {
+        if (_isLoading) return;
+        _settings.ShowScreenshotEditor = ScreenshotEditorToggle.IsOn;
         SaveSettings();
     }
 

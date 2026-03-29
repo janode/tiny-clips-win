@@ -40,6 +40,7 @@ public sealed class CaptureSettings
     public int JpegQuality { get; set; } = 85;
     public bool ScreenshotCountdownEnabled { get; set; } = false;
     public int ScreenshotCountdownDuration { get; set; } = 3;
+    public bool ShowScreenshotEditor { get; set; } = true;
 
     // MARK: - Video
 
@@ -133,6 +134,7 @@ public sealed class CaptureSettings
         JpegQuality = fresh.JpegQuality;
         ScreenshotCountdownEnabled = fresh.ScreenshotCountdownEnabled;
         ScreenshotCountdownDuration = fresh.ScreenshotCountdownDuration;
+        ShowScreenshotEditor = fresh.ShowScreenshotEditor;
         VideoFrameRate = fresh.VideoFrameRate;
         RecordSystemAudio = fresh.RecordSystemAudio;
         ShowRegionIndicator = fresh.ShowRegionIndicator;

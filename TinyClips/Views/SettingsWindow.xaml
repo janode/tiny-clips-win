@@ -76,6 +76,9 @@
 
                     <ToggleSwitch x:Name="ScreenshotCountdownToggle" Header="Countdown before capture" Toggled="OnScreenshotCountdownToggled" Margin="0,12,0,0" />
                     <NumberBox x:Name="ScreenshotCountdownBox" Header="Countdown (seconds)" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" ValueChanged="OnScreenshotCountdownValueChanged" AutomationProperties.Name="Screenshot countdown seconds" />
+
+                    <ToggleSwitch x:Name="ScreenshotEditorToggle" Header="Edit before saving" Toggled="OnScreenshotEditorToggled" Margin="0,12,0,0" />
+                    <TextBlock Text="Open the screenshot editor (crop, annotate, blur) before saving" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,-4,0,0" />
                 </StackPanel>
 
                 <!-- Video Page -->
