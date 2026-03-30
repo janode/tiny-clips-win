@@ -206,7 +206,7 @@ public sealed class RegionSelectorWindow : IDisposable
         int width = selRect.Right - selRect.Left;
         int height = selRect.Bottom - selRect.Top;
 
-        if (width < 10 || height < 10)
+        if (!SelectionGeometry.MeetsMinimumSize(width, height))
         {
             // Selection too small — treat as cancel
             Cancel();

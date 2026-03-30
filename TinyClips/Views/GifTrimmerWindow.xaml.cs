@@ -60,9 +60,7 @@ public sealed partial class GifTrimmerWindow : Window
     }
 
     private bool HasChanges =>
-        _startFrame > 1 ||
-        _endFrame < _frameCount ||
-        _outputWidth != _originalWidth;
+        GifTrimHelper.HasChanges(_startFrame, _endFrame, _frameCount, _outputWidth, _originalWidth);
 
     // MARK: - Window Configuration
 
@@ -271,8 +269,7 @@ public sealed partial class GifTrimmerWindow : Window
         double width = RangeContainer.ActualWidth;
         if (width <= 0) return;
 
-        double startFrac = (_startFrame - 1.0) / _frameCount;
-        double endFrac = (double)_endFrame / _frameCount;
+        var (startFrac, endFrac) = GifTrimHelper.RangeBarFractions(_startFrame, _endFrame, _frameCount);
 
         RangeBar.Margin = new Thickness(width * startFrac, 0, 0, 0);
         RangeBar.Width = Math.Max(0, width * (endFrac - startFrac));
@@ -283,21 +280,15 @@ public sealed partial class GifTrimmerWindow : Window
         int selectedFrames = _endFrame - _startFrame + 1;
         FrameCountLabel.Text = $"{selectedFrames} of {_frameCount} frames";
 
-        int outH = _originalWidth > 0
-            ? (int)Math.Round((double)_originalHeight / _originalWidth * _outputWidth)
-            : _originalHeight;
-        outH = Math.Max(1, outH & ~1);
-        if (outH < 2) outH = 2;
+        int outH = GifTrimHelper.CalculateOutputHeight(_originalWidth, _originalHeight, _outputWidth);
 
-        DimensionsLabel.Text = $"→ {_outputWidth} × {outH}  (original: {_originalWidth} × {_originalHeight})";
+        DimensionsLabel.Text = $"\u2192 {_outputWidth} \u00d7 {outH}  (original: {_originalWidth} \u00d7 {_originalHeight})";
 
         // Rough file size estimate
-        double ratio = (double)selectedFrames / _frameCount;
-        double scaleRatio = _originalWidth > 0
-            ? (double)(_outputWidth * outH) / (_originalWidth * _originalHeight)
-            : 1.0;
-        long estimated = (long)(_originalFileSize * ratio * Math.Sqrt(scaleRatio));
-        InfoLabel.Text = $"{selectedFrames} frames · ~{FormatFileSize(estimated)} estimated";
+        long estimated = GifTrimHelper.EstimateFileSize(
+            selectedFrames, _frameCount, _outputWidth, outH,
+            _originalWidth, _originalHeight, _originalFileSize);
+        InfoLabel.Text = $"{selectedFrames} frames \u00b7 ~{GifTrimHelper.FormatFileSize(estimated)} estimated";
     }
 
     // MARK: - Save & Discard
@@ -374,14 +365,9 @@ public sealed partial class GifTrimmerWindow : Window
         int startIdx = _startFrame - 1; // Convert to 0-based
         int endIdx = _endFrame - 1;
         int outW = _outputWidth;
-        int srcW = _originalWidth;
-        int srcH = _originalHeight;
-        int outH = srcW > 0
-            ? (int)Math.Round((double)srcH / srcW * outW)
-            : srcH;
-        outH = Math.Max(2, outH & ~1);
+        int outH = GifTrimHelper.CalculateOutputHeight(_originalWidth, _originalHeight, outW);
         if (outW < 2) outW = 2;
-        bool needsResize = outW != srcW || outH != srcH;
+        bool needsResize = outW != _originalWidth || outH != _originalHeight;
 
         await Task.Run(() =>
         {
@@ -463,10 +449,5 @@ public sealed partial class GifTrimmerWindow : Window
 
     // MARK: - Helpers
 
-    private static string FormatFileSize(long bytes)
-    {
-        if (bytes < 1024) return $"{bytes} B";
-        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:F1} KB";
-        return $"{bytes / (1024.0 * 1024.0):F1} MB";
-    }
+    private static string FormatFileSize(long bytes) => GifTrimHelper.FormatFileSize(bytes);
 }

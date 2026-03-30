@@ -1,23 +1,14 @@
+using TinyClips.Helpers;
 using Xunit;
 
 namespace TinyClips.Tests;
 
 /// <summary>
-/// Tests for VideoTrimmerWindow's pure logic: time formatting,
-/// trim boundary validation, and trim calculation math.
-/// The actual WinUI window can't be instantiated in tests, so we
-/// test the algorithms directly.
+/// Tests for VideoTrimHelper — pure logic extracted from VideoTrimmerWindow.
 /// </summary>
 public class VideoTrimmerTests
 {
-    // MARK: - FormatTime (same algorithm as VideoTrimmerWindow.FormatTime)
-
-    private static string FormatTime(TimeSpan t)
-    {
-        return t.TotalMinutes >= 1
-            ? $"{(int)t.TotalMinutes:D2}:{t.Seconds:D2}.{t.Milliseconds / 100}"
-            : $"00:{t.Seconds:D2}.{t.Milliseconds / 100}";
-    }
+    // MARK: - FormatTime
 
     [Theory]
     [InlineData(0, 0, 0, "00:00.0")]
@@ -29,34 +20,30 @@ public class VideoTrimmerTests
     public void FormatTime_VariousDurations_FormatsCorrectly(int minutes, int seconds, int ms, string expected)
     {
         var t = new TimeSpan(0, 0, minutes, seconds, ms);
-        Assert.Equal(expected, FormatTime(t));
+        Assert.Equal(expected, VideoTrimHelper.FormatTime(t));
     }
 
     [Fact]
     public void FormatTime_SubSecond_ShowsDecimal()
     {
         var t = TimeSpan.FromMilliseconds(500);
-        Assert.Equal("00:00.5", FormatTime(t));
+        Assert.Equal("00:00.5", VideoTrimHelper.FormatTime(t));
     }
 
     [Fact]
     public void FormatTime_LargeDuration_FormatsMinutes()
     {
         var t = TimeSpan.FromMinutes(65) + TimeSpan.FromSeconds(30);
-        Assert.Equal("65:30.0", FormatTime(t));
+        Assert.Equal("65:30.0", VideoTrimHelper.FormatTime(t));
     }
 
-    // MARK: - EffectiveTrimEnd Logic
+    // MARK: - EffectiveTrimEnd
 
     [Fact]
     public void EffectiveTrimEnd_WhenZero_ReturnsDuration()
     {
-        // trimEnd == Zero means "full duration"
-        var trimEnd = TimeSpan.Zero;
         var duration = TimeSpan.FromSeconds(30);
-
-        var effective = trimEnd > TimeSpan.Zero ? trimEnd : duration;
-        Assert.Equal(duration, effective);
+        Assert.Equal(duration, VideoTrimHelper.EffectiveTrimEnd(TimeSpan.Zero, duration));
     }
 
     [Fact]
@@ -64,56 +51,37 @@ public class VideoTrimmerTests
     {
         var trimEnd = TimeSpan.FromSeconds(15);
         var duration = TimeSpan.FromSeconds(30);
-
-        var effective = trimEnd > TimeSpan.Zero ? trimEnd : duration;
-        Assert.Equal(TimeSpan.FromSeconds(15), effective);
+        Assert.Equal(trimEnd, VideoTrimHelper.EffectiveTrimEnd(trimEnd, duration));
     }
 
-    // MARK: - HasTrim Logic
+    // MARK: - HasTrim
 
     [Fact]
     public void HasTrim_NoTrimPoints_ReturnsFalse()
     {
-        var trimStart = TimeSpan.Zero;
-        var trimEnd = TimeSpan.Zero;
-        var duration = TimeSpan.FromSeconds(30);
-
-        bool hasTrim = trimStart > TimeSpan.Zero || (trimEnd > TimeSpan.Zero && trimEnd < duration);
-        Assert.False(hasTrim);
+        Assert.False(VideoTrimHelper.HasTrim(
+            TimeSpan.Zero, TimeSpan.Zero, TimeSpan.FromSeconds(30)));
     }
 
     [Fact]
     public void HasTrim_StartOnly_ReturnsTrue()
     {
-        var trimStart = TimeSpan.FromSeconds(5);
-        var trimEnd = TimeSpan.Zero;
-        var duration = TimeSpan.FromSeconds(30);
-
-        bool hasTrim = trimStart > TimeSpan.Zero || (trimEnd > TimeSpan.Zero && trimEnd < duration);
-        Assert.True(hasTrim);
+        Assert.True(VideoTrimHelper.HasTrim(
+            TimeSpan.FromSeconds(5), TimeSpan.Zero, TimeSpan.FromSeconds(30)));
     }
 
     [Fact]
     public void HasTrim_EndOnly_ReturnsTrue()
     {
-        var trimStart = TimeSpan.Zero;
-        var trimEnd = TimeSpan.FromSeconds(20);
-        var duration = TimeSpan.FromSeconds(30);
-
-        bool hasTrim = trimStart > TimeSpan.Zero || (trimEnd > TimeSpan.Zero && trimEnd < duration);
-        Assert.True(hasTrim);
+        Assert.True(VideoTrimHelper.HasTrim(
+            TimeSpan.Zero, TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(30)));
     }
 
     [Fact]
     public void HasTrim_EndAtDuration_ReturnsFalse()
     {
-        // Setting end exactly at duration is effectively no trim
-        var trimStart = TimeSpan.Zero;
-        var trimEnd = TimeSpan.FromSeconds(30);
-        var duration = TimeSpan.FromSeconds(30);
-
-        bool hasTrim = trimStart > TimeSpan.Zero || (trimEnd > TimeSpan.Zero && trimEnd < duration);
-        Assert.False(hasTrim);
+        Assert.False(VideoTrimHelper.HasTrim(
+            TimeSpan.Zero, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30)));
     }
 
     // MARK: - Trim Start/End Validation
@@ -215,7 +183,7 @@ public class VideoTrimmerTests
         Assert.False(shouldStop);
     }
 
-    // MARK: - Trim Range Bar Calculation
+    // MARK: - Trim Range Bar Fractions
 
     [Theory]
     [InlineData(0, 30, 30, 0.0, 1.0)]       // Full range
@@ -229,8 +197,7 @@ public class VideoTrimmerTests
         var effectiveTrimEnd = TimeSpan.FromSeconds(endSec);
         var duration = TimeSpan.FromSeconds(durationSec);
 
-        double startFrac = trimStart.TotalSeconds / duration.TotalSeconds;
-        double endFrac = effectiveTrimEnd.TotalSeconds / duration.TotalSeconds;
+        var (startFrac, endFrac) = VideoTrimHelper.TrimRangeFractions(trimStart, effectiveTrimEnd, duration);
 
         Assert.Equal(expectedStartFrac, startFrac, 4);
         Assert.Equal(expectedEndFrac, endFrac, 4);

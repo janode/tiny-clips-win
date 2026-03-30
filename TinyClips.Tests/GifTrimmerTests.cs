@@ -1,12 +1,10 @@
-using System.Globalization;
+using TinyClips.Helpers;
 using Xunit;
 
 namespace TinyClips.Tests;
 
 /// <summary>
-/// Tests for GifTrimmerWindow's pure logic: frame range validation,
-/// dimension scaling, even-rounding, file size estimation, and
-/// frame index conversion.
+/// Tests for GifTrimHelper — pure logic extracted from GifTrimmerWindow.
 /// </summary>
 public class GifTrimmerTests
 {
@@ -20,21 +18,14 @@ public class GifTrimmerTests
     [InlineData(1080, 1920, 540, 960)]   // Portrait (9:16)
     public void OutputHeight_PreservesAspectRatio(int srcW, int srcH, int outW, int expectedH)
     {
-        int outH = srcW > 0
-            ? (int)Math.Round((double)srcH / srcW * outW)
-            : srcH;
-
+        int outH = GifTrimHelper.CalculateOutputHeight(srcW, srcH, outW);
         Assert.Equal(expectedH, outH);
     }
 
     [Fact]
     public void OutputHeight_ZeroSourceWidth_FallsBackToOriginalHeight()
     {
-        int srcW = 0, srcH = 480, outW = 320;
-        int outH = srcW > 0
-            ? (int)Math.Round((double)srcH / srcW * outW)
-            : srcH;
-
+        int outH = GifTrimHelper.CalculateOutputHeight(0, 480, 320);
         Assert.Equal(480, outH);
     }
 
@@ -80,23 +71,16 @@ public class GifTrimmerTests
     [Fact]
     public void DimensionPipeline_Realistic_ProducesEvenDimensions()
     {
-        int srcW = 1920, srcH = 1080, outW = 641;
-
-        // Clamp and even-round width
+        int outW = 641;
         outW = outW & ~1;
         if (outW < 2) outW = 2;
 
-        // Calculate height
-        int outH = srcW > 0
-            ? (int)Math.Round((double)srcH / srcW * outW)
-            : srcH;
-        outH = Math.Max(1, outH & ~1);
-        if (outH < 2) outH = 2;
+        int outH = GifTrimHelper.CalculateOutputHeight(1920, 1080, outW);
 
         Assert.Equal(640, outW);
         Assert.Equal(360, outH);
-        Assert.Equal(0, outW % 2); // Even
-        Assert.Equal(0, outH % 2); // Even
+        Assert.Equal(0, outW % 2);
+        Assert.Equal(0, outH % 2);
     }
 
     // MARK: - Frame Range Validation
@@ -179,41 +163,25 @@ public class GifTrimmerTests
     [Fact]
     public void HasChanges_NoModifications_ReturnsFalse()
     {
-        int startFrame = 1, endFrame = 100, frameCount = 100;
-        int outputWidth = 640, originalWidth = 640;
-
-        bool hasChanges = startFrame > 1 || endFrame < frameCount || outputWidth != originalWidth;
-        Assert.False(hasChanges);
+        Assert.False(GifTrimHelper.HasChanges(1, 100, 100, 640, 640));
     }
 
     [Fact]
     public void HasChanges_StartFrameChanged_ReturnsTrue()
     {
-        int startFrame = 5, endFrame = 100, frameCount = 100;
-        int outputWidth = 640, originalWidth = 640;
-
-        bool hasChanges = startFrame > 1 || endFrame < frameCount || outputWidth != originalWidth;
-        Assert.True(hasChanges);
+        Assert.True(GifTrimHelper.HasChanges(5, 100, 100, 640, 640));
     }
 
     [Fact]
     public void HasChanges_EndFrameChanged_ReturnsTrue()
     {
-        int startFrame = 1, endFrame = 80, frameCount = 100;
-        int outputWidth = 640, originalWidth = 640;
-
-        bool hasChanges = startFrame > 1 || endFrame < frameCount || outputWidth != originalWidth;
-        Assert.True(hasChanges);
+        Assert.True(GifTrimHelper.HasChanges(1, 80, 100, 640, 640));
     }
 
     [Fact]
     public void HasChanges_WidthChanged_ReturnsTrue()
     {
-        int startFrame = 1, endFrame = 100, frameCount = 100;
-        int outputWidth = 320, originalWidth = 640;
-
-        bool hasChanges = startFrame > 1 || endFrame < frameCount || outputWidth != originalWidth;
-        Assert.True(hasChanges);
+        Assert.True(GifTrimHelper.HasChanges(1, 100, 100, 320, 640));
     }
 
     // MARK: - File Size Estimation
@@ -221,66 +189,27 @@ public class GifTrimmerTests
     [Fact]
     public void FileSizeEstimate_FullRange_NoResize_EqualsOriginal()
     {
-        int selectedFrames = 100, frameCount = 100;
-        int outputWidth = 640, originalWidth = 640;
-        int outH = 480, originalHeight = 480;
-        long originalFileSize = 2_000_000; // 2 MB
-
-        double ratio = (double)selectedFrames / frameCount;
-        double scaleRatio = originalWidth > 0
-            ? (double)(outputWidth * outH) / (originalWidth * originalHeight)
-            : 1.0;
-        long estimated = (long)(originalFileSize * ratio * Math.Sqrt(scaleRatio));
-
-        Assert.Equal(originalFileSize, estimated);
+        long estimated = GifTrimHelper.EstimateFileSize(100, 100, 640, 480, 640, 480, 2_000_000);
+        Assert.Equal(2_000_000, estimated);
     }
 
     [Fact]
     public void FileSizeEstimate_HalfFrames_RoughlyHalfSize()
     {
-        int selectedFrames = 50, frameCount = 100;
-        int outputWidth = 640, originalWidth = 640;
-        int outH = 480, originalHeight = 480;
-        long originalFileSize = 2_000_000;
-
-        double ratio = (double)selectedFrames / frameCount;
-        double scaleRatio = originalWidth > 0
-            ? (double)(outputWidth * outH) / (originalWidth * originalHeight)
-            : 1.0;
-        long estimated = (long)(originalFileSize * ratio * Math.Sqrt(scaleRatio));
-
+        long estimated = GifTrimHelper.EstimateFileSize(50, 100, 640, 480, 640, 480, 2_000_000);
         Assert.Equal(1_000_000, estimated);
     }
 
     [Fact]
     public void FileSizeEstimate_HalfWidth_SmallerThanLinear()
     {
-        // Sqrt of scale ratio means half-size dimensions don't halve file size linearly
-        int selectedFrames = 100, frameCount = 100;
-        int outputWidth = 320, originalWidth = 640;
-        int outH = 240, originalHeight = 480;
-        long originalFileSize = 2_000_000;
-
-        double ratio = (double)selectedFrames / frameCount;
-        double scaleRatio = originalWidth > 0
-            ? (double)(outputWidth * outH) / (originalWidth * originalHeight)
-            : 1.0;
-        long estimated = (long)(originalFileSize * ratio * Math.Sqrt(scaleRatio));
-
+        long estimated = GifTrimHelper.EstimateFileSize(100, 100, 320, 240, 640, 480, 2_000_000);
         // scaleRatio = 0.25, sqrt(0.25) = 0.5, so estimated = 1MB
         Assert.Equal(1_000_000, estimated);
-        Assert.True(estimated < originalFileSize);
+        Assert.True(estimated < 2_000_000);
     }
 
     // MARK: - FormatFileSize
-
-    private static string FormatFileSize(long bytes)
-    {
-        var ci = CultureInfo.InvariantCulture;
-        if (bytes < 1024) return $"{bytes} B";
-        if (bytes < 1024 * 1024) return string.Format(ci, "{0:F1} KB", bytes / 1024.0);
-        return string.Format(ci, "{0:F1} MB", bytes / (1024.0 * 1024.0));
-    }
 
     [Theory]
     [InlineData(0, "0 B")]
@@ -292,7 +221,7 @@ public class GifTrimmerTests
     [InlineData(2621440, "2.5 MB")]
     public void FormatFileSize_VariousSizes_FormatsCorrectly(long bytes, string expected)
     {
-        Assert.Equal(expected, FormatFileSize(bytes));
+        Assert.Equal(expected, GifTrimHelper.FormatFileSize(bytes));
     }
 
     // MARK: - Range Bar Fractions
@@ -305,9 +234,7 @@ public class GifTrimmerTests
     public void RangeBar_CalculatesFractions(int start, int end, int total,
         double expectedStartFrac, double expectedEndFrac)
     {
-        // Same algorithm as GifTrimmerWindow.UpdateRangeBar
-        double startFrac = (start - 1.0) / total;
-        double endFrac = (double)end / total;
+        var (startFrac, endFrac) = GifTrimHelper.RangeBarFractions(start, end, total);
 
         Assert.Equal(expectedStartFrac, startFrac, 2);
         Assert.Equal(expectedEndFrac, endFrac, 2);

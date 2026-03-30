@@ -51,8 +51,8 @@ public sealed partial class VideoTrimmerWindow : Window
         _ = LoadVideoAsync();
     }
 
-    private TimeSpan EffectiveTrimEnd => _trimEnd > TimeSpan.Zero ? _trimEnd : _duration;
-    private bool HasTrim => _trimStart > TimeSpan.Zero || (_trimEnd > TimeSpan.Zero && _trimEnd < _duration);
+    private TimeSpan EffectiveTrimEnd => VideoTrimHelper.EffectiveTrimEnd(_trimEnd, _duration);
+    private bool HasTrim => VideoTrimHelper.HasTrim(_trimStart, _trimEnd, _duration);
 
     // MARK: - Window Configuration
 
@@ -189,8 +189,7 @@ public sealed partial class VideoTrimmerWindow : Window
         double width = TrimRangeContainer.ActualWidth;
         if (width <= 0) return;
 
-        double startFrac = _trimStart.TotalSeconds / _duration.TotalSeconds;
-        double endFrac = EffectiveTrimEnd.TotalSeconds / _duration.TotalSeconds;
+        var (startFrac, endFrac) = VideoTrimHelper.TrimRangeFractions(_trimStart, EffectiveTrimEnd, _duration);
 
         TrimRangeBar.Margin = new Thickness(width * startFrac, 0, 0, 0);
         TrimRangeBar.Width = Math.Max(0, width * (endFrac - startFrac));
@@ -406,10 +405,5 @@ public sealed partial class VideoTrimmerWindow : Window
 
     // MARK: - Helpers
 
-    private static string FormatTime(TimeSpan t)
-    {
-        return t.TotalMinutes >= 1
-            ? $"{(int)t.TotalMinutes:D2}:{t.Seconds:D2}.{t.Milliseconds / 100}"
-            : $"00:{t.Seconds:D2}.{t.Milliseconds / 100}";
-    }
+    private static string FormatTime(TimeSpan t) => VideoTrimHelper.FormatTime(t);
 }

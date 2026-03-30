@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using System.Runtime.InteropServices;
+using TinyClips.Helpers;
 using TinyClips.Models;
 using TinyClips.Services;
 using Windows.Storage.Pickers;
@@ -188,32 +189,26 @@ public sealed partial class SettingsWindow : Window
 
     private void CheckShortcutConflicts()
     {
-        var shortcuts = new (string Name, int Mod, int Vk, TextBlock ConflictText)[]
+        var shortcuts = new ShortcutValidator.Shortcut[]
         {
-            ("Screenshot", _settings.ScreenshotHotKeyMod, _settings.ScreenshotHotKeyVk, ScreenshotConflictText),
-            ("Video", _settings.VideoHotKeyMod, _settings.VideoHotKeyVk, VideoConflictText),
-            ("GIF", _settings.GifHotKeyMod, _settings.GifHotKeyVk, GifConflictText)
+            new("Screenshot", _settings.ScreenshotHotKeyMod, _settings.ScreenshotHotKeyVk),
+            new("Video", _settings.VideoHotKeyMod, _settings.VideoHotKeyVk),
+            new("GIF", _settings.GifHotKeyMod, _settings.GifHotKeyVk)
         };
 
-        for (int i = 0; i < shortcuts.Length; i++)
+        var textBlocks = new[] { ScreenshotConflictText, VideoConflictText, GifConflictText };
+        var conflicts = ShortcutValidator.CheckAllConflicts(shortcuts);
+
+        for (int i = 0; i < textBlocks.Length; i++)
         {
-            string? conflict = null;
-            for (int j = 0; j < shortcuts.Length; j++)
+            if (conflicts[i] != null)
             {
-                if (i != j && shortcuts[i].Mod == shortcuts[j].Mod && shortcuts[i].Vk == shortcuts[j].Vk)
-                {
-                    conflict = $"Conflicts with {shortcuts[j].Name}";
-                    break;
-                }
-            }
-            if (conflict != null)
-            {
-                shortcuts[i].ConflictText.Text = conflict;
-                shortcuts[i].ConflictText.Visibility = Visibility.Visible;
+                textBlocks[i].Text = conflicts[i]!;
+                textBlocks[i].Visibility = Visibility.Visible;
             }
             else
             {
-                shortcuts[i].ConflictText.Visibility = Visibility.Collapsed;
+                textBlocks[i].Visibility = Visibility.Collapsed;
             }
         }
     }

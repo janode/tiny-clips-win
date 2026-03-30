@@ -269,10 +269,7 @@ public sealed partial class ScreenshotEditorWindow : Window
 
     private static Windows.UI.Color ParseHexColor(string hex)
     {
-        hex = hex.TrimStart('#');
-        byte r = Convert.ToByte(hex[0..2], 16);
-        byte g = Convert.ToByte(hex[2..4], 16);
-        byte b = Convert.ToByte(hex[4..6], 16);
+        var (r, g, b) = ArrowGeometry.ParseHexColor(hex);
         return Windows.UI.Color.FromArgb(255, r, g, b);
     }
 
@@ -464,28 +461,18 @@ public sealed partial class ScreenshotEditorWindow : Window
         Windows.Foundation.Point start, Windows.Foundation.Point end,
         double thickness, Windows.UI.Color color)
     {
-        double dx = end.X - start.X;
-        double dy = end.Y - start.Y;
-        double length = Math.Sqrt(dx * dx + dy * dy);
-        if (length < 1) return new Polygon();
+        var result = ArrowGeometry.CalculateArrowhead(start.X, start.Y, end.X, end.Y, thickness);
+        if (result is null) return new Polygon();
 
-        double ux = dx / length;
-        double uy = dy / length;
-
-        double headLength = Math.Max(thickness * 4, 12);
-        double headWidth = Math.Max(thickness * 2.5, 8);
-
-        var baseX = end.X - ux * headLength;
-        var baseY = end.Y - uy * headLength;
-
+        var (tip, left, right) = result.Value;
         var polygon = new Polygon
         {
             Fill = new SolidColorBrush(color),
             IsHitTestVisible = false
         };
-        polygon.Points.Add(end);
-        polygon.Points.Add(new Windows.Foundation.Point(baseX + uy * headWidth, baseY - ux * headWidth));
-        polygon.Points.Add(new Windows.Foundation.Point(baseX - uy * headWidth, baseY + ux * headWidth));
+        polygon.Points.Add(new Windows.Foundation.Point(tip.X, tip.Y));
+        polygon.Points.Add(new Windows.Foundation.Point(left.X, left.Y));
+        polygon.Points.Add(new Windows.Foundation.Point(right.X, right.Y));
         return polygon;
     }
 
