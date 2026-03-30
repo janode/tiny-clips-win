@@ -47,7 +47,7 @@ public sealed class CaptureRegion
         var rect = new Rectangle(
             info.rcMonitor.Left, info.rcMonitor.Top,
             info.rcMonitor.Width, info.rcMonitor.Height);
-        return new CaptureRegion(rect, hMonitor);
+        return new CaptureRegion(rect, hMonitor, Helpers.NativeMethods.GetMonitorScale(hMonitor));
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ public sealed class CaptureRegion
         var rect = new Rectangle(
             info.rcMonitor.Left, info.rcMonitor.Top,
             info.rcMonitor.Width, info.rcMonitor.Height);
-        return new CaptureRegion(rect, hMonitor);
+        return new CaptureRegion(rect, hMonitor, Helpers.NativeMethods.GetMonitorScale(hMonitor));
     }
 }
 

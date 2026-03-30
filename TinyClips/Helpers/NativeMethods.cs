@@ -97,6 +97,20 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll")]
     public static partial uint GetDpiForWindow(nint hwnd);
 
+    [LibraryImport("shcore.dll")]
+    public static partial int GetDpiForMonitor(nint hMonitor, int dpiType, out uint dpiX, out uint dpiY);
+
+    /// <summary>
+    /// Get the DPI scale factor for a specific monitor (1.0 = 96 DPI).
+    /// </summary>
+    public static double GetMonitorScale(nint hMonitor)
+    {
+        // MDT_EFFECTIVE_DPI = 0
+        if (GetDpiForMonitor(hMonitor, 0, out uint dpiX, out _) == 0 && dpiX > 0)
+            return dpiX / 96.0;
+        return 1.0;
+    }
+
     // Window subclassing for min/max size enforcement
     public delegate nint SUBCLASSPROC(nint hWnd, uint uMsg, nint wParam, nint lParam, nint uIdSubclass, nint dwRefData);
 

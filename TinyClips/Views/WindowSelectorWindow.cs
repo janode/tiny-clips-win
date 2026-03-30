@@ -19,6 +19,7 @@ public sealed class WindowSelectorWindow : IDisposable
     private Rectangle _highlightRect;
     private string _highlightTitle = "";
     private Rectangle _virtualBounds;
+    private double _dpiScale = 1.0;
     private readonly List<WindowInfo> _windows = new();
     private readonly TaskCompletionSource<CaptureRegion?> _tcs = new();
     private GCHandle _wndProcHandle;
@@ -113,6 +114,9 @@ public sealed class WindowSelectorWindow : IDisposable
         // Color key (magenta) = fully transparent; alpha = dim the rest
         SetLayeredWindowAttributes(_hwnd, ColorKey, 160, 0x01 | 0x02);
 
+        _dpiScale = NativeMethods.GetDpiForWindow(_hwnd) / 96.0;
+        if (_dpiScale < 1.0) _dpiScale = 1.0;
+
         NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOW);
         NativeMethods.SetForegroundWindow(_hwnd);
         SetCapture(_hwnd);
@@ -202,7 +206,8 @@ public sealed class WindowSelectorWindow : IDisposable
             DeleteObject(keyBrush);
 
             // White border around highlight
-            var pen = CreatePen(0, 3, 0x00FFFFFF);
+            int penWidth = Math.Max(3, (int)(3 * _dpiScale));
+            var pen = CreatePen(0, penWidth, 0x00FFFFFF);
             var oldPen = SelectObject(hdc, pen);
             var oldBrush = SelectObject(hdc, GetStockObject(5)); // HOLLOW_BRUSH
             Win32Rectangle(hdc, selRect.Left, selRect.Top, selRect.Right, selRect.Bottom);
@@ -211,19 +216,22 @@ public sealed class WindowSelectorWindow : IDisposable
             DeleteObject(pen);
 
             // Window title label
-            var font = CreateFont(16, 0, 0, 0, 700, 0, 0, 0, 1, 0, 0, 4, 0, "Segoe UI");
+            int fontSize = Math.Max(16, (int)(16 * _dpiScale));
+            var font = CreateFont(fontSize, 0, 0, 0, 700, 0, 0, 0, 1, 0, 0, 4, 0, "Segoe UI");
             var oldFont = SelectObject(hdc, font);
             SetTextColor(hdc, 0x00FFFFFF);
             SetBkMode(hdc, 1); // TRANSPARENT
 
-            int labelY = selRect.Top - 24;
+            int labelPad = Math.Max(24, (int)(24 * _dpiScale));
+            int labelHeight = Math.Max(20, (int)(20 * _dpiScale));
+            int labelY = selRect.Top - labelPad;
             if (labelY < 4) labelY = selRect.Bottom + 4;
             var textRect = new RECT_GDI
             {
                 Left = selRect.Left,
                 Top = labelY,
-                Right = selRect.Left + 600,
-                Bottom = labelY + 20
+                Right = selRect.Left + (int)(600 * _dpiScale),
+                Bottom = labelY + labelHeight
             };
             DrawText(hdc, _highlightTitle, -1, ref textRect, 0);
             SelectObject(hdc, oldFont);
@@ -241,7 +249,8 @@ public sealed class WindowSelectorWindow : IDisposable
             Y = _highlightRect.Y + _highlightRect.Height / 2
         };
         var hMonitor = NativeMethods.MonitorFromPoint(pt, NativeMethods.MONITOR_DEFAULTTONEAREST);
-        var region = new CaptureRegion(_highlightRect, hMonitor);
+        var scaleFactor = NativeMethods.GetMonitorScale(hMonitor);
+        var region = new CaptureRegion(_highlightRect, hMonitor, scaleFactor);
 
         Close();
         _tcs.TrySetResult(region);

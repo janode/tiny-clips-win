@@ -285,9 +285,9 @@
 ## 12. Multi-Monitor & DPI
 
 - [x] ~~Region selector works on cursor's current display~~
-- [ ] Region selector spans all connected displays
-- [ ] Correct DPI-aware coordinate mapping
-- [ ] Crisp UI at 100%, 125%, 150%, 200% scale factors
+- [x] ~~Region selector spans all connected displays~~
+- [x] ~~Correct DPI-aware coordinate mapping~~
+- [x] ~~Crisp UI at 100%, 125%, 150%, 200% scale factors~~
 - [ ] Test: multi-monitor with mixed DPI settings
 
 ---
@@ -353,7 +353,7 @@
 | File Management | 9 | 9 | 0 |
 | Onboarding | 7 | 1 | 6 |
 | Accessibility | 5 | 1 | 4 |
-| Multi-Monitor & DPI | 5 | 1 | 4 |
+| Multi-Monitor & DPI | 5 | 4 | 1 |
 | Distribution | 10 | 6 | 4 |
 | Architecture & Diagnostics | 6 | 6 | 0 |
-| **Total** | **148** | **129** | **19** |
+| **Total** | **148** | **132** | **16** |

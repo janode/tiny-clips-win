@@ -21,6 +21,7 @@ public sealed class RegionSelectorWindow : IDisposable
     private GCHandle _wndProcHandle;
     private WndProcDelegate? _wndProc;
     private nint _crosshairCursor;
+    private double _dpiScale = 1.0;
 
     private delegate nint WndProcDelegate(nint hwnd, uint msg, nint wParam, nint lParam);
 
@@ -83,6 +84,10 @@ public sealed class RegionSelectorWindow : IDisposable
         NativeMethods.ShowWindow(_hwnd, NativeMethods.SW_SHOW);
         NativeMethods.SetForegroundWindow(_hwnd);
         SetCapture(_hwnd);
+
+        // Get DPI scale from the primary monitor (initial scale for the overlay)
+        _dpiScale = NativeMethods.GetDpiForWindow(_hwnd) / 96.0;
+        if (_dpiScale < 1.0) _dpiScale = 1.0;
     }
 
     private nint WndProc(nint hwnd, uint msg, nint wParam, nint lParam)
@@ -159,8 +164,9 @@ public sealed class RegionSelectorWindow : IDisposable
                 FillRect(hdc, ref selRect, keyBrush);
                 DeleteObject(keyBrush);
 
-                // White border around selection
-                var pen = CreatePen(0, 2, 0x00FFFFFF);
+                // White border around selection — scale pen width with DPI
+                int penWidth = Math.Max(2, (int)(2 * _dpiScale));
+                var pen = CreatePen(0, penWidth, 0x00FFFFFF);
                 var oldPen = SelectObject(hdc, pen);
                 var oldBrush = SelectObject(hdc, GetStockObject(5)); // HOLLOW_BRUSH
                 Win32Rectangle(hdc, selRect.Left, selRect.Top, selRect.Right, selRect.Bottom);
@@ -168,22 +174,25 @@ public sealed class RegionSelectorWindow : IDisposable
                 SelectObject(hdc, oldBrush);
                 DeleteObject(pen);
 
-                // Dimensions label
+                // Dimensions label — scale font with DPI
+                int fontSize = Math.Max(16, (int)(16 * _dpiScale));
                 var sizeText = $"{selRect.Width} \u00d7 {selRect.Height}";
-                var font = CreateFont(16, 0, 0, 0, 700, 0, 0, 0, 1, 0, 0, 4, 0, "Segoe UI");
+                var font = CreateFont(fontSize, 0, 0, 0, 700, 0, 0, 0, 1, 0, 0, 4, 0, "Segoe UI");
                 var oldFont = SelectObject(hdc, font);
                 SetTextColor(hdc, 0x00FFFFFF);
                 SetBkMode(hdc, 1); // TRANSPARENT
 
                 // Position label above selection, or below if too close to top
-                int labelY = selRect.Top - 24;
+                int labelPad = Math.Max(24, (int)(24 * _dpiScale));
+                int labelHeight = Math.Max(20, (int)(20 * _dpiScale));
+                int labelY = selRect.Top - labelPad;
                 if (labelY < 4) labelY = selRect.Bottom + 4;
                 var textRect = new RECT_GDI
                 {
                     Left = selRect.Left,
                     Top = labelY,
-                    Right = selRect.Left + 200,
-                    Bottom = labelY + 20
+                    Right = selRect.Left + (int)(200 * _dpiScale),
+                    Bottom = labelY + labelHeight
                 };
                 DrawText(hdc, sizeText, -1, ref textRect, 0);
                 SelectObject(hdc, oldFont);
@@ -223,9 +232,10 @@ public sealed class RegionSelectorWindow : IDisposable
 
         var pt = new NativeMethods.POINT { X = screenX + width / 2, Y = screenY + height / 2 };
         var hMonitor = NativeMethods.MonitorFromPoint(pt, NativeMethods.MONITOR_DEFAULTTONEAREST);
+        var scaleFactor = NativeMethods.GetMonitorScale(hMonitor);
 
         var rect = new Rectangle(screenX, screenY, width, height);
-        var region = new CaptureRegion(rect, hMonitor);
+        var region = new CaptureRegion(rect, hMonitor, scaleFactor);
 
         Close();
         _tcs.TrySetResult(region);
