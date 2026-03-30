@@ -181,17 +181,17 @@ public class CaptureSettingsTests
     }
 
     [Fact]
-    public void IsCountdownEnabled_Video_DefaultTrue()
+    public void IsCountdownEnabled_Video_DefaultFalse()
     {
         var s = CreateFresh();
-        Assert.True(s.IsCountdownEnabled(CaptureType.Video));
+        Assert.False(s.IsCountdownEnabled(CaptureType.Video));
     }
 
     [Fact]
-    public void IsCountdownEnabled_Gif_DefaultTrue()
+    public void IsCountdownEnabled_Gif_DefaultFalse()
     {
         var s = CreateFresh();
-        Assert.True(s.IsCountdownEnabled(CaptureType.Gif));
+        Assert.False(s.IsCountdownEnabled(CaptureType.Gif));
     }
 
     // MARK: - JSON Round-Trip
