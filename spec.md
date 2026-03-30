@@ -232,12 +232,12 @@
 - [x] ~~Post-save notification with file name~~
 - [x] ~~Error notifications for capture failures~~
 - [x] ~~Click notification to reveal file in Explorer~~
-- [ ] Notification includes thumbnail preview for screenshots
+- [x] ~~Notification includes thumbnail preview for screenshots~~
 
 ### 8.2 Clipboard
 - [x] ~~Screenshot: copy as bitmap (`DataPackage`)~~
 - [x] ~~Video / GIF: copy file path as text~~
-- [ ] Video / GIF: copy as file reference (`IStorageItem`)
+- [x] ~~Video / GIF: copy as file reference (`IStorageItem`)~~
 
 ---
 
@@ -349,11 +349,11 @@
 | Floating Panels | 18 | 18 | 0 |
 | Global Hotkeys | 7 | 7 | 0 |
 | Settings Window | 24 | 24 | 0 |
-| Notifications & Clipboard | 7 | 5 | 2 |
+| Notifications & Clipboard | 7 | 7 | 0 |
 | File Management | 9 | 9 | 0 |
 | Onboarding | 7 | 1 | 6 |
 | Accessibility | 5 | 1 | 4 |
 | Multi-Monitor & DPI | 5 | 1 | 4 |
 | Distribution | 10 | 6 | 4 |
 | Architecture & Diagnostics | 6 | 6 | 0 |
-| **Total** | **148** | **127** | **21** |
+| **Total** | **148** | **129** | **19** |

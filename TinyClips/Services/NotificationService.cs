@@ -35,6 +35,12 @@ public sealed class NotificationService : INotificationService
                 .AddArgument("action", "openFile")
                 .AddArgument("filePath", filePath);
 
+            // Show thumbnail preview for screenshots
+            if (type == CaptureType.Screenshot && File.Exists(filePath))
+            {
+                builder.SetInlineImage(new Uri(filePath));
+            }
+
             var notification = builder.BuildNotification();
             AppNotificationManager.Default.Show(notification);
         }
