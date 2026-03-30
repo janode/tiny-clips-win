@@ -34,6 +34,7 @@ public sealed class CaptureManager : IDisposable
 
     public CaptureManager()
     {
+        AppLog.Info("CaptureManager initialized");
         _hotKeyManager.Initialize();
         RegisterHotKeys();
     }
@@ -130,11 +131,13 @@ public sealed class CaptureManager : IDisposable
 
             string path = SaveService.Instance.GeneratePath(CaptureType.Screenshot);
             await ScreenshotCapture.CaptureRegionAsync(region, path);
+            AppLog.Info($"Screenshot saved: {path}");
             SaveService.Instance.HandleSavedFile(path, CaptureType.Screenshot);
         }
         catch (Exception ex)
         {
             NotificationService.Instance.ShowErrorNotification($"Screenshot failed: {ex.Message}");
+            AppLog.Error("Screenshot capture failed", ex);
         }
 
         // Reopen picker for additional captures
@@ -203,12 +206,14 @@ public sealed class CaptureManager : IDisposable
 
             await recorder.StartAsync(region.ScreenRect, path, settings.VideoFrameRate,
                 recordAudio: settings.RecordSystemAudio);
+            AppLog.Info($"Video recording started: {path}");
             ShowStopPanel();
         }
         catch (Exception ex)
         {
             SetRecording(false);
             NotificationService.Instance.ShowErrorNotification($"Video recording failed: {ex.Message}");
+            AppLog.Error("Video recording failed", ex);
         }
     }
 
@@ -272,12 +277,14 @@ public sealed class CaptureManager : IDisposable
             };
 
             await writer.StartAsync(region.ScreenRect, path);
+            AppLog.Info($"GIF recording started: {path}");
             ShowStopPanel();
         }
         catch (Exception ex)
         {
             SetRecording(false);
             NotificationService.Instance.ShowErrorNotification($"GIF recording failed: {ex.Message}");
+            AppLog.Error("GIF recording failed", ex);
         }
     }
 
@@ -297,6 +304,7 @@ public sealed class CaptureManager : IDisposable
                 string? path = await recorder.StopAsync();
                 if (path != null)
                 {
+                    AppLog.Info($"Video recording stopped: {path}");
                     if (CaptureSettings.Instance.ShowVideoTrimmer)
                         ShowVideoTrimmer(path);
                     else
@@ -306,6 +314,7 @@ public sealed class CaptureManager : IDisposable
             catch (Exception ex)
             {
                 NotificationService.Instance.ShowErrorNotification($"Video save failed: {ex.Message}");
+                AppLog.Error("Video stop/save failed", ex);
             }
             _videoRecorder = null;
         }
@@ -315,6 +324,7 @@ public sealed class CaptureManager : IDisposable
             try
             {
                 string path = await writer.StopAsync();
+                AppLog.Info($"GIF recording stopped: {path}");
                 if (CaptureSettings.Instance.ShowGifTrimmer)
                     ShowGifTrimmer(path);
                 else
@@ -323,6 +333,7 @@ public sealed class CaptureManager : IDisposable
             catch (Exception ex)
             {
                 NotificationService.Instance.ShowErrorNotification($"GIF save failed: {ex.Message}");
+                AppLog.Error("GIF stop/save failed", ex);
             }
             _gifWriter = null;
         }
@@ -398,7 +409,7 @@ public sealed class CaptureManager : IDisposable
 
     private void DismissPicker()
     {
-        try { _pickerWindow?.Close(); } catch { }
+        try { _pickerWindow?.Close(); } catch (Exception ex) { AppLog.Error("Close picker failed", ex); }
         _pickerWindow = null;
     }
 
@@ -416,7 +427,7 @@ public sealed class CaptureManager : IDisposable
 
     private void DismissStopPanel()
     {
-        try { _stopWindow?.Close(); } catch { }
+        try { _stopWindow?.Close(); } catch (Exception ex) { AppLog.Error("Close stop panel failed", ex); }
         _stopWindow = null;
     }
 
@@ -443,7 +454,7 @@ public sealed class CaptureManager : IDisposable
 
     private void DismissEditor()
     {
-        try { _editorWindow?.Close(); } catch { }
+        try { _editorWindow?.Close(); } catch (Exception ex) { AppLog.Error("Close editor failed", ex); }
         _editorWindow = null;
     }
 
@@ -476,7 +487,7 @@ public sealed class CaptureManager : IDisposable
 
     private void DismissVideoTrimmer()
     {
-        try { _videoTrimmerWindow?.Close(); } catch { }
+        try { _videoTrimmerWindow?.Close(); } catch (Exception ex) { AppLog.Error("Close video trimmer failed", ex); }
         _videoTrimmerWindow = null;
     }
 
@@ -501,7 +512,7 @@ public sealed class CaptureManager : IDisposable
 
     private void DismissGifTrimmer()
     {
-        try { _gifTrimmerWindow?.Close(); } catch { }
+        try { _gifTrimmerWindow?.Close(); } catch (Exception ex) { AppLog.Error("Close GIF trimmer failed", ex); }
         _gifTrimmerWindow = null;
     }
 
@@ -513,7 +524,7 @@ public sealed class CaptureManager : IDisposable
         DismissEditor();
         DismissVideoTrimmer();
         DismissGifTrimmer();
-        try { _startWindow?.Close(); } catch { }
+        try { _startWindow?.Close(); } catch (Exception ex) { AppLog.Error("Close start window failed", ex); }
         _startWindow = null;
         _pendingRegion = null;
 

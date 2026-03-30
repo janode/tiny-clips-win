@@ -34,7 +34,7 @@
 ### 2.1 Capture Modes
 - [x] ~~**Region:** user draws a rectangle on screen to capture~~
 - [x] ~~**Screen:** captures entire display where cursor is located~~
-- [x] ~~**Window:** captures target window (v1.0: falls back to full screen at cursor)~~
+- [x] ~~**Window:** captures target window via `WindowSelectorWindow` overlay~~
 
 ### 2.2 Capture Flow
 - [x] ~~User triggers via tray menu or global hotkey~~
@@ -62,7 +62,8 @@
 ### 2.5 Post-Capture
 - [x] ~~Toast notification with file name~~
 - [x] ~~Click notification to reveal file in Explorer~~
-- [ ] "Show in Explorer" option (configurable)
+- [x] ~~"Show in Explorer" option (configurable)~~
+- [x] ~~Optional screenshot editor (crop, draw, arrow, blur, text) before save~~
 
 ---
 
@@ -71,7 +72,7 @@
 ### 3.1 Capture Modes
 - [x] ~~**Region:** record a screen rectangle~~
 - [x] ~~**Screen:** record entire display~~
-- [x] ~~**Window:** record target window (v1.0: falls back to full screen)~~
+- [x] ~~**Window:** record target window via `WindowSelectorWindow`~~
 
 ### 3.2 Recording Flow
 - [x] ~~User triggers via tray menu or global hotkey~~
@@ -84,13 +85,14 @@
 ### 3.3 Encoding
 - [x] ~~H.264 MP4 via MFSinkWriter~~
 - [x] ~~Configurable frame rate: 24, 30, or 60 FPS~~
-- [ ] System audio capture via WASAPI loopback (deferred to v1.1)
+- [x] ~~System audio capture via WASAPI loopback (`SystemAudioCapture` + NAudio)~~
 - [ ] Microphone audio capture (deferred to v1.1)
 
 ### 3.4 Output
 - [x] ~~Save as `.mp4` to configured directory~~
 - [x] ~~Copy file path to clipboard (configurable, default off)~~
 - [x] ~~Toast notification with file name~~
+- [x] ~~Optional video trimmer (trim start/end) before save~~
 
 ---
 
@@ -99,7 +101,7 @@
 ### 4.1 Capture Modes
 - [x] ~~**Region:** record a screen rectangle as GIF~~
 - [x] ~~**Screen:** record entire display as GIF~~
-- [x] ~~**Window:** record target window as GIF (v1.0: falls back to full screen)~~
+- [x] ~~**Window:** record target window as GIF via `WindowSelectorWindow`~~
 
 ### 4.2 Recording Flow
 - [x] ~~Same picker → start → stop flow as video recording~~
@@ -114,6 +116,7 @@
 - [x] ~~Save as `.gif` to configured directory~~
 - [x] ~~Copy file path to clipboard (configurable, default off)~~
 - [x] ~~Toast notification with file name~~
+- [x] ~~Optional GIF trimmer (trim frames + resize) before save~~
 
 ---
 
@@ -192,19 +195,22 @@
 - [x] ~~Scale factor selector~~
 - [x] ~~Countdown toggle + duration~~
 - [x] ~~Copy to clipboard toggle~~
+- [x] ~~Show screenshot editor toggle~~
 
 ### 7.4 Video Tab
 - [x] ~~Frame rate selector: 24 / 30 / 60 FPS~~
-- [x] ~~System audio toggle (placeholder — capture not yet implemented)~~
+- [x] ~~System audio toggle~~
 - [x] ~~Countdown toggle + duration~~
 - [x] ~~Region indicator toggle~~
 - [x] ~~Copy to clipboard toggle~~
+- [x] ~~Show video trimmer toggle~~
 
 ### 7.5 GIF Tab
 - [x] ~~Frame rate slider~~
 - [x] ~~Max width setting~~
 - [x] ~~Countdown toggle + duration~~
 - [x] ~~Copy to clipboard toggle~~
+- [x] ~~Show GIF trimmer toggle~~
 
 ### 7.6 Shortcuts Tab
 - [x] ~~Display current hotkey assignments~~
@@ -215,6 +221,8 @@
 - [x] ~~App name + version~~
 - [x] ~~GitHub / Issues / Privacy links~~
 - [x] ~~Custom app icon display~~
+- [x] ~~Copy Diagnostic Log button~~
+- [x] ~~Open Log Folder button~~
 
 ---
 
@@ -266,7 +274,7 @@
 
 ## 11. Accessibility
 
-- [ ] All buttons and controls have `AutomationProperties.Name`
+- [x] ~~All buttons and controls have `AutomationProperties.Name`~~
 - [ ] Keyboard navigation through all panels and settings
 - [ ] High contrast mode support
 - [ ] Screen reader (Narrator) support for capture picker, countdown, timer
@@ -292,7 +300,7 @@
 - [x] ~~GitHub Actions CI pipeline (build matrix: x64+arm64, Debug+Release)~~
 - [x] ~~GitHub Actions Release pipeline (tag-triggered, creates GitHub Release with zips)~~
 - [x] ~~GitHub Pages site with install guide, features, and keyboard shortcuts~~
-- [x] ~~Auto-update checker (GitHub Releases version compare)~~
+- [x] ~~`UpdateChecker` — checks GitHub Releases API for newer version on launch~~
 - [ ] Code signing
 
 ### 13.2 Microsoft Store
@@ -302,21 +310,31 @@
 
 ---
 
+## 13.5 Architecture & Diagnostics
+- [x] ~~`SettingsViewModel` with `INotifyPropertyChanged` for x:Bind compiled bindings~~
+- [x] ~~`ScreenshotEditorViewModel` for tool state and undo tracking~~
+- [x] ~~`ISaveService` / `INotificationService` interfaces for testability~~
+- [x] ~~`AppLog` file logger (`%LocalAppData%\TinyClips\tinyclips.log`, 1 MB rotation)~~
+- [x] ~~All catch blocks log via `AppLog.Error`; lifecycle events via `AppLog.Info`~~
+- [x] ~~Copy Diagnostic Log + Open Log Folder buttons in Settings → About~~
+
+---
+
 ## 14. Deferred Features (v1.1+)
 
 | # | Feature | Priority | Notes |
 |---|---|---|---|
-| 14.1 | Screenshot editor (crop, annotate, blur) | High | Post-capture editing before save |
-| 14.2 | Video trimmer (trim start/end) | High | Before save |
-| 14.3 | GIF trimmer (trim + resize) | Medium | Before save |
+| ~~14.1~~ | ~~Screenshot editor (crop, annotate, blur)~~ | ~~High~~ | ~~Done — crop, draw, arrow, blur, text with undo~~ |
+| ~~14.2~~ | ~~Video trimmer (trim start/end)~~ | ~~High~~ | ~~Done — trim with preview before save~~ |
+| ~~14.3~~ | ~~GIF trimmer (trim + resize)~~ | ~~Medium~~ | ~~Done — trim frames + resize before save~~ |
 | 14.4 | Clips Manager (browse, tag, search) | Medium | Pro feature on macOS |
-| 14.5 | System audio in video (WASAPI loopback) | High | Currently placeholder toggle |
+| ~~14.5~~ | ~~System audio in video (WASAPI loopback)~~ | ~~High~~ | ~~Done — `SystemAudioCapture` via NAudio~~ |
 | 14.6 | Microphone audio in video | Medium | Separate `AudioGraph` / WASAPI input |
-| 14.7 | True window capture (`GraphicsCapturePicker`) | Medium | Currently falls back to fullscreen |
+| ~~14.7~~ | ~~True window capture~~ | ~~Medium~~ | ~~Done — `WindowSelectorWindow` overlay~~ |
 | 14.8 | Subscriptions / Pro tier | Low | Monetization gating |
 | 14.9 | Uploadcare cloud upload | Low | User brings own API keys |
 | 14.10 | Region indicator overlay during recording | Medium | Dashed border around captured area |
-| 14.11 | Auto-update for direct builds | Medium | Check GitHub Releases for new version |
+| ~~14.11~~ | ~~Auto-update for direct builds~~ | ~~Medium~~ | ~~Done — `UpdateChecker` via GitHub Releases API~~ |
 
 ---
 
@@ -325,16 +343,17 @@
 | Area | Total | Done | Remaining |
 |---|---|---|---|
 | App Shell & Lifecycle | 9 | 9 | 0 |
-| Screenshot Capture | 16 | 16 | 0 |
-| Video Recording | 13 | 10 | 3 |
-| GIF Recording | 10 | 9 | 1 |
+| Screenshot Capture | 17 | 17 | 0 |
+| Video Recording | 14 | 13 | 1 |
+| GIF Recording | 11 | 11 | 0 |
 | Floating Panels | 18 | 18 | 0 |
 | Global Hotkeys | 7 | 7 | 0 |
-| Settings Window | 19 | 19 | 0 |
-| Notifications & Clipboard | 6 | 5 | 1 |
-| File Management | 8 | 8 | 0 |
-| Onboarding | 6 | 1 | 5 |
-| Accessibility | 5 | 0 | 5 |
+| Settings Window | 24 | 24 | 0 |
+| Notifications & Clipboard | 7 | 5 | 2 |
+| File Management | 9 | 9 | 0 |
+| Onboarding | 7 | 1 | 6 |
+| Accessibility | 5 | 1 | 4 |
 | Multi-Monitor & DPI | 5 | 1 | 4 |
-| Distribution | 8 | 6 | 2 |
-| **Total** | **130** | **114** | **16** |
+| Distribution | 10 | 6 | 4 |
+| Architecture & Diagnostics | 6 | 6 | 0 |
+| **Total** | **148** | **127** | **21** |

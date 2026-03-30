@@ -51,13 +51,13 @@
 
                     <TextBlock Text="File name template" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,16,0,4" />
                     <TextBox x:Name="FileNameTemplateBox" TextChanged="OnFileNameTemplateChanged" PlaceholderText="TinyClips {date} at {time}" AutomationProperties.Name="File name template" />
-                    <TextBlock x:Name="FileNamePreviewText" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" IsTextSelectionEnabled="True" />
+                    <TextBlock x:Name="FileNamePreviewText" Text="{x:Bind ViewModel.FileNamePreview, Mode=OneWay}" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,4,0,0" IsTextSelectionEnabled="True" />
 
-                    <ToggleSwitch x:Name="CopyToClipboardToggle" Header="Copy to clipboard after capture" Toggled="OnCopyClipboardToggled" Margin="0,16,0,0" />
-                    <ToggleSwitch x:Name="ShowInExplorerToggle" Header="Show in Explorer after save" Toggled="OnShowExplorerToggled" />
-                    <ToggleSwitch x:Name="ShowNotificationToggle" Header="Show notification after save" Toggled="OnShowNotificationToggled" />
-                    <ToggleSwitch x:Name="OpenAfterCaptureToggle" Header="Open file after capture" Toggled="OnOpenAfterCaptureToggled" />
-                    <ToggleSwitch x:Name="LaunchAtLoginToggle" Header="Launch at login" Toggled="OnLaunchAtLoginToggled" />
+                    <ToggleSwitch Header="Copy to clipboard after capture" IsOn="{x:Bind ViewModel.CopyToClipboard, Mode=TwoWay}" Margin="0,16,0,0" />
+                    <ToggleSwitch Header="Show in Explorer after save" IsOn="{x:Bind ViewModel.ShowInExplorer, Mode=TwoWay}" />
+                    <ToggleSwitch Header="Show notification after save" IsOn="{x:Bind ViewModel.ShowSaveNotifications, Mode=TwoWay}" />
+                    <ToggleSwitch Header="Open file after capture" IsOn="{x:Bind ViewModel.OpenAfterCapture, Mode=TwoWay}" />
+                    <ToggleSwitch Header="Launch at login" IsOn="{x:Bind ViewModel.LaunchAtStartup, Mode=TwoWay}" />
                 </StackPanel>
 
                 <!-- Screenshot Page -->
@@ -65,20 +65,20 @@
                     <TextBlock Text="Screenshot" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,16" />
 
                     <TextBlock Text="Image format" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
-                    <ComboBox x:Name="ImageFormatCombo" SelectionChanged="OnImageFormatChanged" AutomationProperties.Name="Image format">
+                    <ComboBox SelectedIndex="{x:Bind ViewModel.ImageFormatIndex, Mode=TwoWay}" AutomationProperties.Name="Image format">
                         <ComboBoxItem Content="PNG" />
                         <ComboBoxItem Content="JPEG" />
                     </ComboBox>
 
-                    <StackPanel x:Name="JpegQualityPanel" Spacing="4" Margin="0,12,0,0">
+                    <StackPanel Spacing="4" Margin="0,12,0,0" Visibility="{x:Bind ViewModel.JpegQualityVisible, Mode=OneWay}">
                         <TextBlock Text="JPEG quality" Style="{StaticResource BodyStrongTextBlockStyle}" />
-                        <Slider x:Name="JpegQualitySlider" Minimum="10" Maximum="100" StepFrequency="5" ValueChanged="OnJpegQualityChanged" AutomationProperties.Name="JPEG quality" />
+                        <Slider Minimum="10" Maximum="100" StepFrequency="5" Value="{x:Bind ViewModel.JpegQuality, Mode=TwoWay}" AutomationProperties.Name="JPEG quality" />
                     </StackPanel>
 
-                    <ToggleSwitch x:Name="ScreenshotCountdownToggle" Header="Countdown before capture" Toggled="OnScreenshotCountdownToggled" Margin="0,12,0,0" />
-                    <NumberBox x:Name="ScreenshotCountdownBox" Header="Countdown (seconds)" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" ValueChanged="OnScreenshotCountdownValueChanged" AutomationProperties.Name="Screenshot countdown seconds" />
+                    <ToggleSwitch Header="Countdown before capture" IsOn="{x:Bind ViewModel.ScreenshotCountdownEnabled, Mode=TwoWay}" Margin="0,12,0,0" />
+                    <NumberBox Header="Countdown (seconds)" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" Value="{x:Bind ViewModel.ScreenshotCountdownDuration, Mode=TwoWay}" AutomationProperties.Name="Screenshot countdown seconds" />
 
-                    <ToggleSwitch x:Name="ScreenshotEditorToggle" Header="Edit before saving" Toggled="OnScreenshotEditorToggled" Margin="0,12,0,0" />
+                    <ToggleSwitch Header="Edit before saving" IsOn="{x:Bind ViewModel.ShowScreenshotEditor, Mode=TwoWay}" Margin="0,12,0,0" />
                     <TextBlock Text="Open the screenshot editor (crop, annotate, blur) before saving" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,-4,0,0" />
                 </StackPanel>
 
@@ -87,18 +87,18 @@
                     <TextBlock Text="Video" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,16" />
 
                     <TextBlock Text="Frame rate" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
-                    <ComboBox x:Name="VideoFpsCombo" SelectionChanged="OnVideoFpsChanged" AutomationProperties.Name="Video frame rate">
+                    <ComboBox SelectedIndex="{x:Bind ViewModel.VideoFpsIndex, Mode=TwoWay}" AutomationProperties.Name="Video frame rate">
                         <ComboBoxItem Content="15 fps" Tag="15" />
                         <ComboBoxItem Content="24 fps" Tag="24" />
                         <ComboBoxItem Content="30 fps" Tag="30" />
                         <ComboBoxItem Content="60 fps" Tag="60" />
                     </ComboBox>
 
-                    <ToggleSwitch x:Name="SystemAudioToggle" Header="Record system audio" Toggled="OnSystemAudioToggled" Margin="0,12,0,0" />
-                    <ToggleSwitch x:Name="VideoCountdownToggle" Header="Countdown before recording" Toggled="OnVideoCountdownToggled" />
-                    <NumberBox x:Name="VideoCountdownBox" Header="Countdown (seconds)" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" ValueChanged="OnVideoCountdownValueChanged" AutomationProperties.Name="Video countdown seconds" />
+                    <ToggleSwitch Header="Record system audio" IsOn="{x:Bind ViewModel.RecordSystemAudio, Mode=TwoWay}" Margin="0,12,0,0" />
+                    <ToggleSwitch Header="Countdown before recording" IsOn="{x:Bind ViewModel.VideoCountdownEnabled, Mode=TwoWay}" />
+                    <NumberBox Header="Countdown (seconds)" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" Value="{x:Bind ViewModel.VideoCountdownDuration, Mode=TwoWay}" AutomationProperties.Name="Video countdown seconds" />
 
-                    <ToggleSwitch x:Name="VideoTrimmerToggle" Header="Trim before saving" Toggled="OnVideoTrimmerToggled" Margin="0,12,0,0" />
+                    <ToggleSwitch Header="Trim before saving" IsOn="{x:Bind ViewModel.ShowVideoTrimmer, Mode=TwoWay}" Margin="0,12,0,0" />
                     <TextBlock Text="Open the video trimmer (trim start/end) before saving" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,-4,0,0" />
                 </StackPanel>
 
@@ -107,18 +107,18 @@
                     <TextBlock Text="GIF" Style="{StaticResource TitleTextBlockStyle}" Margin="0,0,0,16" />
 
                     <TextBlock Text="Frame rate" Style="{StaticResource BodyStrongTextBlockStyle}" Margin="0,0,0,4" />
-                    <ComboBox x:Name="GifFpsCombo" SelectionChanged="OnGifFpsChanged" AutomationProperties.Name="GIF frame rate">
+                    <ComboBox SelectedIndex="{x:Bind ViewModel.GifFpsIndex, Mode=TwoWay}" AutomationProperties.Name="GIF frame rate">
                         <ComboBoxItem Content="5 fps" Tag="5" />
                         <ComboBoxItem Content="10 fps" Tag="10" />
                         <ComboBoxItem Content="15 fps" Tag="15" />
                         <ComboBoxItem Content="24 fps" Tag="24" />
                     </ComboBox>
 
-                    <NumberBox x:Name="GifMaxWidthBox" Header="Max width (px)" Minimum="100" Maximum="2560" SpinButtonPlacementMode="Compact" ValueChanged="OnGifMaxWidthChanged" Margin="0,12,0,0" AutomationProperties.Name="GIF max width" />
-                    <ToggleSwitch x:Name="GifCountdownToggle" Header="Countdown before recording" Toggled="OnGifCountdownToggled" />
-                    <NumberBox x:Name="GifCountdownBox" Header="Countdown (seconds)" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" ValueChanged="OnGifCountdownValueChanged" AutomationProperties.Name="GIF countdown seconds" />
+                    <NumberBox Header="Max width (px)" Minimum="100" Maximum="2560" SpinButtonPlacementMode="Compact" Value="{x:Bind ViewModel.GifMaxWidth, Mode=TwoWay}" Margin="0,12,0,0" AutomationProperties.Name="GIF max width" />
+                    <ToggleSwitch Header="Countdown before recording" IsOn="{x:Bind ViewModel.GifCountdownEnabled, Mode=TwoWay}" />
+                    <NumberBox Header="Countdown (seconds)" Minimum="1" Maximum="10" SpinButtonPlacementMode="Compact" Value="{x:Bind ViewModel.GifCountdownDuration, Mode=TwoWay}" AutomationProperties.Name="GIF countdown seconds" />
 
-                    <ToggleSwitch x:Name="GifTrimmerToggle" Header="Trim before saving" Toggled="OnGifTrimmerToggled" Margin="0,12,0,0" />
+                    <ToggleSwitch Header="Trim before saving" IsOn="{x:Bind ViewModel.ShowGifTrimmer, Mode=TwoWay}" Margin="0,12,0,0" />
                     <TextBlock Text="Open the GIF trimmer (trim frames + resize) before saving" FontSize="12" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Margin="0,-4,0,0" />
                 </StackPanel>
 
@@ -167,6 +167,10 @@
                     <TextBlock Text="TinyClips" FontSize="20" FontWeight="SemiBold" />
                     <TextBlock x:Name="VersionLabel" Text="Version 1.0.0" Foreground="{ThemeResource TextFillColorSecondaryBrush}" AutomationProperties.Name="App version" />
                     <TextBlock Text="Screen capture for Windows" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Margin="0,4,0,0" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">
+                        <Button x:Name="CopyLogButton" Content="Copy Diagnostic Log" Click="OnCopyLogClick" />
+                        <Button x:Name="OpenLogFolderButton" Content="Open Log Folder" Click="OnOpenLogFolderClick" />
+                    </StackPanel>
                 </StackPanel>
             </Grid>
         </ScrollViewer>

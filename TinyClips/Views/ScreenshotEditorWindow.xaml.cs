@@ -12,6 +12,7 @@ using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Shapes;
 using TinyClips.Helpers;
 using TinyClips.Models;
+using TinyClips.ViewModels;
 using WinRT.Interop;
 using Windows.Foundation;
 using Image = Microsoft.UI.Xaml.Controls.Image;
@@ -27,8 +28,6 @@ namespace TinyClips.Views;
 public sealed partial class ScreenshotEditorWindow : Window
 {
     // MARK: - Types
-
-    private enum EditorTool { None, Crop, Draw, Arrow, Blur, Text }
 
     private abstract class EditorAction
     {
@@ -67,13 +66,14 @@ public sealed partial class ScreenshotEditorWindow : Window
 
     // MARK: - State
 
+    public ScreenshotEditorViewModel ViewModel { get; } = new();
+
     private Bitmap _bitmap;
     private string? _tempPath;
     private int _imageWidth;
     private int _imageHeight;
     private double _dpiScale = 1.0;
 
-    private EditorTool _activeTool = EditorTool.None;
     private readonly List<EditorAction> _actions = [];
     private Windows.UI.Color _currentColor = Windows.UI.Color.FromArgb(255, 255, 59, 48);
     private double _currentFontSize = 24;
@@ -207,46 +207,17 @@ public sealed partial class ScreenshotEditorWindow : Window
     private void SetActiveTool(EditorTool tool)
     {
         // Clear crop overlay when leaving crop mode
-        if (_activeTool == EditorTool.Crop && tool != EditorTool.Crop)
+        if (ViewModel.ActiveTool == EditorTool.Crop && tool != EditorTool.Crop)
             ClearCropOverlay();
 
-        _activeTool = tool;
-        UpdatePropertiesBar();
+        ViewModel.ActiveTool = tool;
         UpdateCanvasCursor();
-    }
-
-    private void UpdatePropertiesBar()
-    {
-        AnnotationProperties.Visibility = Visibility.Collapsed;
-        CropProperties.Visibility = Visibility.Collapsed;
-        BlurProperties.Visibility = Visibility.Collapsed;
-
-        switch (_activeTool)
-        {
-            case EditorTool.Draw:
-            case EditorTool.Arrow:
-            case EditorTool.Text:
-                AnnotationProperties.Visibility = Visibility.Visible;
-                PropertiesBar.Visibility = Visibility.Visible;
-                break;
-            case EditorTool.Crop:
-                CropProperties.Visibility = Visibility.Visible;
-                PropertiesBar.Visibility = Visibility.Visible;
-                break;
-            case EditorTool.Blur:
-                BlurProperties.Visibility = Visibility.Visible;
-                PropertiesBar.Visibility = Visibility.Visible;
-                break;
-            default:
-                PropertiesBar.Visibility = Visibility.Collapsed;
-                break;
-        }
     }
 
     private void UpdateCanvasCursor()
     {
         AnnotationCanvas.ChangeCursor(
-            _activeTool switch
+            ViewModel.ActiveTool switch
             {
                 EditorTool.Crop => InputSystemCursorShape.Cross,
                 EditorTool.Draw => InputSystemCursorShape.Cross,
@@ -282,7 +253,7 @@ public sealed partial class ScreenshotEditorWindow : Window
         _pointerStart = pos;
         AnnotationCanvas.CapturePointer(e.Pointer);
 
-        switch (_activeTool)
+        switch (ViewModel.ActiveTool)
         {
             case EditorTool.Draw:
                 BeginDraw(pos);
@@ -307,7 +278,7 @@ public sealed partial class ScreenshotEditorWindow : Window
         if (!_isPointerDown) return;
         var pos = e.GetCurrentPoint(AnnotationCanvas).Position;
 
-        switch (_activeTool)
+        switch (ViewModel.ActiveTool)
         {
             case EditorTool.Draw:
                 ContinueDraw(pos);
@@ -331,7 +302,7 @@ public sealed partial class ScreenshotEditorWindow : Window
         AnnotationCanvas.ReleasePointerCapture(e.Pointer);
         var pos = e.GetCurrentPoint(AnnotationCanvas).Position;
 
-        switch (_activeTool)
+        switch (ViewModel.ActiveTool)
         {
             case EditorTool.Draw:
                 FinishDraw();
@@ -386,7 +357,7 @@ public sealed partial class ScreenshotEditorWindow : Window
         if (_activeDrawAction is { Points.Count: >= 2 })
         {
             _actions.Add(_activeDrawAction);
-            UpdateUndoState();
+            ViewModel.UpdateActionCount(_actions.Count);
         }
         else
         {
@@ -452,7 +423,7 @@ public sealed partial class ScreenshotEditorWindow : Window
             Arrowhead = arrowhead
         };
         _actions.Add(action);
-        UpdateUndoState();
+        ViewModel.UpdateActionCount(_actions.Count);
 
         _activeArrowLine = null;
     }
@@ -560,7 +531,7 @@ public sealed partial class ScreenshotEditorWindow : Window
             _actions.Add(action);
         }
 
-        UpdateUndoState();
+        ViewModel.UpdateActionCount(_actions.Count);
         _activeBlurRect = null;
     }
 
@@ -789,7 +760,7 @@ public sealed partial class ScreenshotEditorWindow : Window
     {
         AnnotationCanvas.Children.Clear();
         _actions.Clear();
-        UpdateUndoState();
+        ViewModel.UpdateActionCount(_actions.Count);
     }
 
     private async Task RefreshImageDisplay()
@@ -797,7 +768,7 @@ public sealed partial class ScreenshotEditorWindow : Window
         // Save updated bitmap to temp
         if (_tempPath != null)
         {
-            try { File.Delete(_tempPath); } catch { }
+            try { File.Delete(_tempPath); } catch (Exception ex) { Services.AppLog.Error("Delete temp file failed", ex); }
         }
         _tempPath = System.IO.Path.Combine(
             System.IO.Path.GetTempPath(),
@@ -877,7 +848,7 @@ public sealed partial class ScreenshotEditorWindow : Window
                 Visual = textBlock
             };
             _actions.Add(action);
-            UpdateUndoState();
+            ViewModel.UpdateActionCount(_actions.Count);
         }
         else
         {
@@ -909,12 +880,7 @@ public sealed partial class ScreenshotEditorWindow : Window
         if (last is BlurAction blur && blur.Preview != null)
             AnnotationCanvas.Children.Remove(blur.Preview);
 
-        UpdateUndoState();
-    }
-
-    private void UpdateUndoState()
-    {
-        UndoButton.IsEnabled = _actions.Count > 0;
+        ViewModel.UpdateActionCount(_actions.Count);
     }
 
     // MARK: - Save & Discard
@@ -1120,7 +1086,7 @@ public sealed partial class ScreenshotEditorWindow : Window
 
         if (e.Key == Windows.System.VirtualKey.Escape)
         {
-            if (_activeTool == EditorTool.Crop && _cropRect != null)
+            if (ViewModel.ActiveTool == EditorTool.Crop && _cropRect != null)
             {
                 ClearCropOverlay();
                 e.Handled = true;
@@ -1182,7 +1148,7 @@ public sealed partial class ScreenshotEditorWindow : Window
         // Clean up temp file
         if (_tempPath != null)
         {
-            try { File.Delete(_tempPath); } catch { }
+            try { File.Delete(_tempPath); } catch (Exception ex) { Services.AppLog.Error("Delete temp file failed", ex); }
         }
 
         _bitmap?.Dispose();

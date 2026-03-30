@@ -7,7 +7,7 @@ namespace TinyClips.Services;
 /// <summary>
 /// Windows toast notifications for save confirmations and errors.
 /// </summary>
-public sealed class NotificationService
+public sealed class NotificationService : INotificationService
 {
     public static NotificationService Instance { get; } = new();
 

@@ -200,7 +200,7 @@ public sealed partial class GifTrimmerWindow : Window
             bi.SetSource(ras);
             GifPreviewImage.Source = bi;
         }
-        catch { }
+        catch (Exception ex) { Services.AppLog.Error("Frame display failed", ex); }
         finally
         {
             _isLoadingFrame = false;
@@ -434,7 +434,7 @@ public sealed partial class GifTrimmerWindow : Window
         _gif?.Dispose();
         _gif = null;
 
-        try { File.Delete(_gifPath); } catch { }
+        try { File.Delete(_gifPath); } catch (Exception ex) { Services.AppLog.Error("Delete temp GIF failed", ex); }
 
         _didCallback = true;
         OnDiscarded?.Invoke();
@@ -534,7 +534,7 @@ public sealed partial class GifTrimmerWindow : Window
 
         if (!_didCallback)
         {
-            try { File.Delete(_gifPath); } catch { }
+            try { File.Delete(_gifPath); } catch (Exception ex) { Services.AppLog.Error("Delete temp GIF failed", ex); }
             OnDiscarded?.Invoke();
         }
     }

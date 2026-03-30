@@ -8,7 +8,7 @@ namespace TinyClips.Services;
 /// Generates output file paths, handles file naming with template tokens,
 /// and post-save actions (clipboard, explorer, notification).
 /// </summary>
-public sealed class SaveService
+public sealed class SaveService : ISaveService
 {
     public static SaveService Instance { get; } = new();
 

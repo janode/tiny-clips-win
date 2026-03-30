@@ -23,7 +23,7 @@
 - [x] ~~`CaptureHelper` — shared `CaptureRegion` model, `FullScreenAtCursor()`, multi-monitor `MONITORINFO` rect lookup~~
 - [x] ~~`VideoRecorder` — `Graphics.CopyFromScreen` frame loop → `MFSinkWriter` H.264 MP4 pipeline with start/stop~~
 - [x] ~~`GifWriter` — capture frames at configured FPS → accumulate bitmaps → `SixLabors.ImageSharp` GIF encoder~~
-- [ ] System audio — WASAPI loopback capture into MFSinkWriter audio input *(defer to v1.1 if it blocks polish)*
+- [x] ~~`SystemAudioCapture` — WASAPI loopback capture via NAudio into MFSinkWriter audio input~~
 - [ ] Functional test: screenshot produces correct file at configured location
 - [ ] Functional test: video records MP4 with timer, plays in Media Player
 - [ ] Functional test: GIF records and plays in browser
@@ -46,7 +46,7 @@
 - [x] ~~`SaveService` — configurable directory, file name template with `{date}`, `{time}`, `{type}` tokens, dedup~~
 - [x] ~~`ClipboardHelper` — screenshot as bitmap via `DataPackage`, video/GIF as file path~~
 - [x] ~~`NotificationService` — toast notifications (post-save), error notifications~~
-- [ ] Show in File Explorer — `explorer.exe /select,"path"`
+- [x] ~~Show in File Explorer — `NativeMethods.ShowInExplorer` via `explorer.exe /select,"path"`~~
 - [ ] Functional test: clipboard paste works (bitmap for screenshots, file for video/GIF)
 - [ ] Functional test: toast notifications appear and click opens containing folder
 
@@ -54,7 +54,7 @@
 
 - [x] ~~`HotKeyManager` — Win32 `RegisterHotKey` / `UnregisterHotKey` P/Invoke with message-only HWND~~
 - [x] ~~Default hotkeys: Ctrl+Alt+Shift+5/6/7 (screenshot/video/GIF), stop hotkey during recording~~
-- [ ] Custom shortcut recorder field in settings with conflict detection
+- [x] ~~`ShortcutRecorderControl` — custom shortcut recorder with conflict detection via `ShortcutValidator`~~
 - [ ] Functional test: hotkeys trigger from any foreground app
 
 ## Phase 6: Settings Window
@@ -67,10 +67,10 @@
 - [x] ~~Shortcuts tab: current hotkey display~~
 - [x] ~~About tab: version, links~~
 - [x] ~~`LaunchAtLoginManager` — registry key `CurrentUser\Run`~~
-- [ ] Mica backdrop on Settings window
-- [ ] File name template live preview
-- [ ] Save directory folder picker dialog
-- [ ] Shortcut recorder — editable hotkey fields with conflict detection
+- [x] ~~Mica backdrop on Settings window~~
+- [x] ~~File name template live preview via `SettingsViewModel.FileNamePreview` with `x:Bind`~~
+- [x] ~~Save directory folder picker dialog~~
+- [x] ~~Shortcut recorder — editable hotkey fields with conflict detection~~
 - [ ] Polish: all form controls have proper spacing, grouping, and pixel-perfect alignment
 
 ## Phase 7: Onboarding
@@ -87,9 +87,18 @@
 - [x] ~~GitHub Actions CI: build x64+arm64, Debug+Release matrix on push/PR to main~~
 - [x] ~~GitHub Actions Release: tag-triggered workflow creates GitHub Release with x64+arm64 zips~~
 - [x] ~~GitHub Pages site with install guide, features, and keyboard shortcuts~~
-- [ ] Auto-update checker for direct builds (GitHub Releases version compare)
+- [x] ~~`UpdateChecker` — checks GitHub Releases API for newer version on launch~~
 - [x] ~~App icon — `.ico` with 16/24/32/48/64/256 px layers~~
 - [ ] Installer / MSIX signing
+
+## Phase 9: Architecture & Diagnostics
+
+- [x] ~~`SettingsViewModel` — INotifyPropertyChanged wrapper around CaptureSettings, SettingsWindow rewritten with `x:Bind`~~
+- [x] ~~`ScreenshotEditorViewModel` — tool state, visibility, undo tracking extracted from code-behind~~
+- [x] ~~`ISaveService` / `INotificationService` — interfaces for testability~~
+- [x] ~~`AppLog` — lightweight file logger to `%LocalAppData%\TinyClips\tinyclips.log` with 1 MB rotation~~
+- [x] ~~Diagnostic log buttons in Settings → About (Copy Log, Open Log Folder)~~
+- [x] ~~All error catch blocks log via `AppLog.Error`, key lifecycle events via `AppLog.Info`~~
 
 ---
 
@@ -97,15 +106,15 @@
 
 | Feature | Notes |
 |---|---|
-| Screenshot editor | Crop, annotate, blur — post-capture editing |
-| Video trimmer | Trim start/end before save |
-| GIF trimmer | Trim + resize before save |
+| ~~Screenshot editor~~ | ~~Done — crop, draw, arrow, blur, text annotations with undo~~ |
+| ~~Video trimmer~~ | ~~Done — trim start/end with preview before save~~ |
+| ~~GIF trimmer~~ | ~~Done — trim frames + resize before save~~ |
 | Clips Manager | Browse, tag, organize, search past captures (Pro feature on macOS) |
 | Subscriptions / Pro tier | Monetization, feature gating |
 | Uploadcare integration | Cloud upload with user's own API keys |
 | Microphone recording | Separate audio input mixed into video |
-| Window capture | True window-only capture via `GraphicsCapturePicker` (currently falls back to fullscreen) |
-| System audio in video | WASAPI loopback capture |
+| ~~Window capture~~ | ~~Done — `WindowSelectorWindow` with window selection overlay~~ |
+| ~~System audio in video~~ | ~~Done — `SystemAudioCapture` WASAPI loopback via NAudio~~ |
 | ~~Custom tray icon~~ | ~~Done — multi-size `.ico` with 16–256 px layers~~ |
 | Sparkle-equivalent auto-update | For direct-distribution builds |
 

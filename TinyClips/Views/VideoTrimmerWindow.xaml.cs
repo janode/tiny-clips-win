@@ -311,7 +311,7 @@ public sealed partial class VideoTrimmerWindow : Window
         _mediaPlayer?.Dispose();
         _mediaPlayer = null;
 
-        try { File.Delete(_videoPath); } catch { }
+        try { File.Delete(_videoPath); } catch (Exception ex) { Services.AppLog.Error("Delete temp video failed", ex); }
 
         _didCallback = true;
         OnDiscarded?.Invoke();
@@ -398,7 +398,7 @@ public sealed partial class VideoTrimmerWindow : Window
 
         if (!_didCallback)
         {
-            try { File.Delete(_videoPath); } catch { }
+            try { File.Delete(_videoPath); } catch (Exception ex) { Services.AppLog.Error("Delete temp video failed", ex); }
             OnDiscarded?.Invoke();
         }
     }
