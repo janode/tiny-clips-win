@@ -47,7 +47,7 @@ public sealed class CaptureSettings
     public int VideoFrameRate { get; set; } = 30;
     public bool RecordSystemAudio { get; set; } = false;
     public bool ShowRegionIndicator { get; set; } = true;
-    public bool VideoCountdownEnabled { get; set; } = true;
+    public bool VideoCountdownEnabled { get; set; } = false;
     public int VideoCountdownDuration { get; set; } = 3;
     public bool ShowVideoTrimmer { get; set; } = true;
 
@@ -55,7 +55,7 @@ public sealed class CaptureSettings
 
     public double GifFrameRate { get; set; } = 10;
     public int GifMaxWidth { get; set; } = 640;
-    public bool GifCountdownEnabled { get; set; } = true;
+    public bool GifCountdownEnabled { get; set; } = false;
     public int GifCountdownDuration { get; set; } = 3;
     public bool ShowGifTrimmer { get; set; } = true;
 

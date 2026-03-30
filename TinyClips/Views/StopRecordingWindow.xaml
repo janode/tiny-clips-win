@@ -10,7 +10,7 @@
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <Ellipse x:Name="RecordingDot" Grid.Column="0" Width="10" Height="10" Fill="#FF3B30" VerticalAlignment="Center" AutomationProperties.Name="Recording in progress" />
-        <TextBlock x:Name="TimerText" Grid.Column="1" Text="00:00.0" FontSize="15" FontFamily="Consolas" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" AutomationProperties.Name="Recording duration" />
+        <TextBlock x:Name="TimerText" Grid.Column="1" Text="00:00.0" FontSize="15" FontFamily="Consolas" MinWidth="80" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" AutomationProperties.Name="Recording duration" />
         <Button x:Name="StopButton" Grid.Column="2" Click="OnStopClick" AutomationProperties.Name="Stop recording" ToolTipService.ToolTip="Stop recording (Ctrl+.)">
             <StackPanel Orientation="Horizontal" Spacing="6">
                 <FontIcon Glyph="&#xE71A;" FontSize="14" Foreground="#FF3B30" />

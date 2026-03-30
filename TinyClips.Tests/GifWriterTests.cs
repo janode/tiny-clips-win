@@ -27,13 +27,17 @@ public class GifWriterTests
     }
 
     [Fact]
-    public void BgraToImageSharp_TransparentPixel_PreservesAlpha()
+    public void BgraToImageSharp_ZeroAlpha_ForcedOpaque()
     {
-        byte[] bgra = [0, 0, 0, 0]; // Fully transparent black
+        // CopyFromScreen leaves alpha as 0 — converter must force 255
+        byte[] bgra = [50, 100, 150, 0];
         using var image = GifWriter.BgraToImageSharp(bgra, 1, 1);
 
         var pixel = image[0, 0];
-        Assert.Equal(0, pixel.A);
+        Assert.Equal(150, pixel.R);
+        Assert.Equal(100, pixel.G);
+        Assert.Equal(50, pixel.B);
+        Assert.Equal(255, pixel.A);
     }
 
     [Fact]
@@ -69,9 +73,9 @@ public class GifWriterTests
         Assert.Equal(0, image[0, 1].G);
         Assert.Equal(0, image[0, 1].B);
 
-        // (1,1) half transparent gray
+        // (1,1) gray — alpha forced to 255 regardless of input
         Assert.Equal(128, image[1, 1].R);
-        Assert.Equal(128, image[1, 1].A);
+        Assert.Equal(255, image[1, 1].A);
     }
 
     [Fact]

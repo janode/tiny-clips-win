@@ -20,6 +20,7 @@ public sealed class RegionSelectorWindow : IDisposable
     private readonly TaskCompletionSource<CaptureRegion?> _tcs = new();
     private GCHandle _wndProcHandle;
     private WndProcDelegate? _wndProc;
+    private nint _crosshairCursor;
 
     private delegate nint WndProcDelegate(nint hwnd, uint msg, nint wParam, nint lParam);
 
@@ -52,6 +53,7 @@ public sealed class RegionSelectorWindow : IDisposable
     {
         _wndProc = WndProc;
         _wndProcHandle = GCHandle.Alloc(_wndProc);
+        _crosshairCursor = LoadCursor(nint.Zero, 32515); // IDC_CROSS
 
         var hInstance = GetModuleHandle(null);
         var wndClass = new WNDCLASSEX
@@ -60,7 +62,7 @@ public sealed class RegionSelectorWindow : IDisposable
             lpfnWndProc = Marshal.GetFunctionPointerForDelegate(_wndProc),
             lpszClassName = ClassName,
             hInstance = hInstance,
-            hCursor = LoadCursor(nint.Zero, 32512) // IDC_ARROW
+            hCursor = _crosshairCursor
         };
         RegisterClassEx(ref wndClass);
 
@@ -96,6 +98,7 @@ public sealed class RegionSelectorWindow : IDisposable
                 return nint.Zero;
 
             case WM_MOUSEMOVE:
+                SetCursor(_crosshairCursor);
                 if (_isSelecting)
                 {
                     _currentPoint = PointFromLParam(lParam);
@@ -128,7 +131,7 @@ public sealed class RegionSelectorWindow : IDisposable
                 return new nint(1);
 
             case WM_SETCURSOR:
-                SetCursor(LoadCursor(nint.Zero, 32512)); // IDC_ARROW
+                SetCursor(_crosshairCursor);
                 return new nint(1);
         }
 
@@ -304,7 +307,7 @@ public sealed class RegionSelectorWindow : IDisposable
     [DllImport("user32.dll")] private static extern bool GetClientRect(nint hWnd, out RECT_GDI lpRect);
     [DllImport("user32.dll")] private static extern nint SetCapture(nint hWnd);
     [DllImport("user32.dll")] private static extern bool ReleaseCapture();
-    [DllImport("user32.dll")] private static extern nint LoadCursor(nint hInstance, int lpCursorName);
+    [DllImport("user32.dll", EntryPoint = "LoadCursorW")] private static extern nint LoadCursor(nint hInstance, int lpCursorName);
     [DllImport("user32.dll")] private static extern nint SetCursor(nint hCursor);
     [DllImport("user32.dll")] private static extern bool SetLayeredWindowAttributes(nint hwnd, uint crKey, byte bAlpha, uint dwFlags);
     [DllImport("gdi32.dll")] private static extern nint CreateSolidBrush(uint crColor);

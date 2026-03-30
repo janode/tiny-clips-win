@@ -24,7 +24,8 @@ public sealed partial class CapturePickerWindow : Window
     public CapturePickerWindow(CaptureType captureType, bool countdownEnabled, int countdownDuration)
     {
         this.InitializeComponent();
-        this.SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+        if (Microsoft.UI.Composition.SystemBackdrops.DesktopAcrylicController.IsSupported())
+            this.SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
 
         _captureType = captureType;
         _countdownEnabled = countdownEnabled;

@@ -42,6 +42,10 @@ public sealed partial class GifTrimmerWindow : Window
 
     private DispatcherTimer? _previewTimer;
 
+    // Handle drag state
+    private bool _isDraggingLeft;
+    private bool _isDraggingRight;
+
     // Callbacks
     public Action<string>? OnSaved;
     public Action? OnDiscarded;
@@ -92,6 +96,7 @@ public sealed partial class GifTrimmerWindow : Window
             _frameCount = _gif.Frames.Count;
             _originalWidth = _gif.Width;
             _originalHeight = _gif.Height;
+
             _outputWidth = _originalWidth;
             _startFrame = 1;
             _endFrame = _frameCount;
@@ -173,22 +178,23 @@ public sealed partial class GifTrimmerWindow : Window
         _isLoadingFrame = true;
         try
         {
-            // Render frame to PNG bytes on background thread
+            // Render frame to PNG bytes on background thread.
             byte[] pngBytes = await Task.Run(() =>
             {
-                using var frameImage = _gif.Frames.CloneFrame(frameIndex - 1); // 0-based
+                int idx = frameIndex - 1; // 0-based
+                using var frame = _gif.Frames.CloneFrame(idx);
                 using var ms = new MemoryStream();
-                frameImage.SaveAsPng(ms);
+                frame.SaveAsPng(ms);
                 return ms.ToArray();
             });
 
-            // Create BitmapImage on UI thread from the byte array
+            // Create BitmapImage on UI thread from the byte array.
+            // NOTE: Do NOT wrap AsStreamForWrite() in using — disposing
+            // the wrapper closes the underlying InMemoryRandomAccessStream.
             var ras = new Windows.Storage.Streams.InMemoryRandomAccessStream();
-            using (var writer = ras.AsStreamForWrite())
-            {
-                await writer.WriteAsync(pngBytes, 0, pngBytes.Length);
-                await writer.FlushAsync();
-            }
+            var writer = ras.AsStreamForWrite();
+            await writer.WriteAsync(pngBytes, 0, pngBytes.Length);
+            await writer.FlushAsync();
             ras.Seek(0);
             var bi = new BitmapImage();
             bi.SetSource(ras);
@@ -256,6 +262,74 @@ public sealed partial class GifTrimmerWindow : Window
         UpdateInfoDisplay();
     }
 
+    // MARK: - Handle Drag
+
+    private void OnLeftHandlePointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        _isDraggingLeft = true;
+        ((UIElement)sender).CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void OnRightHandlePointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        _isDraggingRight = true;
+        ((UIElement)sender).CapturePointer(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void OnHandlePointerMoved(object sender, PointerRoutedEventArgs e)
+    {
+        if (!_isDraggingLeft && !_isDraggingRight) return;
+        if (_frameCount <= 0) return;
+
+        double x = e.GetCurrentPoint(RangeContainer).Position.X;
+        double width = RangeContainer.ActualWidth;
+        if (width <= 0) return;
+
+        int frame = (int)Math.Round(x / width * _frameCount) + 1;
+        frame = Math.Clamp(frame, 1, _frameCount);
+
+        _isUpdating = true;
+        if (_isDraggingLeft)
+        {
+            if (frame >= _endFrame) frame = _endFrame - 1;
+            if (frame < 1) frame = 1;
+            _startFrame = frame;
+            StartFrameBox.Value = frame;
+            if (_currentPreviewFrame < _startFrame)
+                _currentPreviewFrame = _startFrame;
+        }
+        else if (_isDraggingRight)
+        {
+            if (frame <= _startFrame) frame = _startFrame + 1;
+            if (frame > _frameCount) frame = _frameCount;
+            _endFrame = frame;
+            EndFrameBox.Value = frame;
+            if (_currentPreviewFrame > _endFrame)
+                _currentPreviewFrame = _endFrame;
+        }
+        _isUpdating = false;
+
+        UpdateInfoDisplay();
+        UpdateRangeBar();
+        e.Handled = true;
+    }
+
+    private void OnHandlePointerReleased(object sender, PointerRoutedEventArgs e)
+    {
+        _isDraggingLeft = false;
+        _isDraggingRight = false;
+        ((UIElement)sender).ReleasePointerCapture(e.Pointer);
+        e.Handled = true;
+    }
+
+    private void OnHandlePointerCaptureLost(object sender, PointerRoutedEventArgs e)
+    {
+        _isDraggingLeft = false;
+        _isDraggingRight = false;
+    }
+
     // MARK: - UI Updates
 
     private void OnRangeContainerSizeChanged(object sender, SizeChangedEventArgs e)
@@ -269,10 +343,20 @@ public sealed partial class GifTrimmerWindow : Window
         double width = RangeContainer.ActualWidth;
         if (width <= 0) return;
 
+        double handleW = LeftHandle.Width;
         var (startFrac, endFrac) = GifTrimHelper.RangeBarFractions(_startFrame, _endFrame, _frameCount);
 
-        RangeBar.Margin = new Thickness(width * startFrac, 0, 0, 0);
-        RangeBar.Width = Math.Max(0, width * (endFrac - startFrac));
+        double barLeft = width * startFrac;
+        double barRight = width * endFrac;
+
+        RangeBar.Margin = new Thickness(barLeft, 0, 0, 0);
+        RangeBar.Width = Math.Max(0, barRight - barLeft);
+
+        // Position handles centered on the range edges, clamped to viewport
+        double leftPos = Math.Max(0, barLeft - handleW / 2);
+        double rightPos = Math.Min(width - handleW, barRight - handleW / 2);
+        LeftHandle.Margin = new Thickness(leftPos, 0, 0, 0);
+        RightHandle.Margin = new Thickness(rightPos, 0, 0, 0);
     }
 
     private void UpdateInfoDisplay()
@@ -379,6 +463,8 @@ public sealed partial class GifTrimmerWindow : Window
             firstFrame.Metadata.GetGifMetadata().RepeatCount = 0; // Loop forever
             firstFrame.Frames.RootFrame.Metadata.GetGifMetadata().FrameDelay =
                 gif.Frames[startIdx].Metadata.GetGifMetadata().FrameDelay;
+            firstFrame.Frames.RootFrame.Metadata.GetGifMetadata().DisposalMethod =
+                GifDisposalMethod.RestoreToBackground;
 
             // Append remaining selected frames
             for (int i = startIdx + 1; i <= endIdx; i++)
@@ -390,13 +476,19 @@ public sealed partial class GifTrimmerWindow : Window
                 var added = firstFrame.Frames.AddFrame(frame.Frames.RootFrame);
                 added.Metadata.GetGifMetadata().FrameDelay =
                     gif.Frames[i].Metadata.GetGifMetadata().FrameDelay;
+                added.Metadata.GetGifMetadata().DisposalMethod =
+                    GifDisposalMethod.RestoreToBackground;
             }
 
             var dir = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
 
-            firstFrame.SaveAsGif(outputPath);
+            var encoder = new GifEncoder
+            {
+                ColorTableMode = GifColorTableMode.Local
+            };
+            firstFrame.Save(outputPath, encoder);
         });
     }
 

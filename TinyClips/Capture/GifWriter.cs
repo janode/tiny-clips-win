@@ -152,7 +152,9 @@ public sealed class GifWriter : IDisposable
                 }
 
                 var addedFrame = gif.Frames.AddFrame(frame.Frames.RootFrame);
-                addedFrame.Metadata.GetGifMetadata().FrameDelay = frameDelay;
+                var frameMeta = addedFrame.Metadata.GetGifMetadata();
+                frameMeta.FrameDelay = frameDelay;
+                frameMeta.DisposalMethod = GifDisposalMethod.RestoreToBackground;
             }
 
             // Remove the default placeholder frame created by new Image<>(...)
@@ -162,7 +164,11 @@ public sealed class GifWriter : IDisposable
             if (!string.IsNullOrEmpty(dir))
                 Directory.CreateDirectory(dir);
 
-            gif.SaveAsGif(_outputPath!);
+            var encoder = new GifEncoder
+            {
+                ColorTableMode = GifColorTableMode.Local
+            };
+            gif.Save(_outputPath!, encoder);
         });
     }
 
@@ -182,8 +188,8 @@ public sealed class GifWriter : IDisposable
                 byte b = bgraPixels[pixelOffset];
                 byte g = bgraPixels[pixelOffset + 1];
                 byte r = bgraPixels[pixelOffset + 2];
-                byte a = bgraPixels[pixelOffset + 3];
-                rowSpan[x] = new Rgba32(r, g, b, a);
+                // CopyFromScreen (BitBlt) leaves alpha undefined/zero — force opaque
+                rowSpan[x] = new Rgba32(r, g, b, 255);
             }
         }
 
