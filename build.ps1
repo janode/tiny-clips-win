@@ -35,9 +35,12 @@ $buildDir  = "$buildRoot\TinyClips"
 Write-Host "=== TinyClips Build ===" -ForegroundColor Cyan
 Write-Host "Platform: $Platform | Configuration: $Configuration"
 
-# Clean and copy
+# Clean and copy (exclude bin/obj to avoid stale build artifacts)
 if (Test-Path $buildRoot) { Remove-Item $buildRoot -Recurse -Force }
-Copy-Item $sourceDir $buildDir -Recurse
+$exclude = @("bin", "obj")
+Copy-Item $sourceDir $buildDir -Recurse -Exclude $exclude
+# Copy-Item -Exclude only applies to top-level items; remove any nested bin/obj
+Get-ChildItem $buildDir -Directory -Recurse -Include $exclude | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 
 # Copy global.json if present
 $globalJson = Join-Path $PSScriptRoot "global.json"
