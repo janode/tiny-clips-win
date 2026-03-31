@@ -302,6 +302,7 @@
 - [x] ~~GitHub Pages site with install guide, features, and keyboard shortcuts~~
 - [x] ~~`UpdateChecker` — checks GitHub Releases API for newer version on launch~~
 - [ ] Code signing
+- [ ] winget submission — use [Komac](https://github.com/russellbanks/Komac) for initial manifest (`komac new`), then automate future releases with [WinGet Releaser](https://github.com/vedantmgoyal9/winget-releaser) GitHub Action
 
 ### 13.2 Microsoft Store
 - [ ] MSIX packaging

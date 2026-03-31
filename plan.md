@@ -90,6 +90,7 @@
 - [x] ~~`UpdateChecker` — checks GitHub Releases API for newer version on launch~~
 - [x] ~~App icon — `.ico` with 16/24/32/48/64/256 px layers~~
 - [ ] Installer / MSIX signing
+- [ ] winget submission — use [Komac](https://github.com/russellbanks/Komac) for initial manifest (`komac new`) + GitHub Actions auto-publish via [WinGet Releaser](https://github.com/vedantmgoyal9/winget-releaser)
 
 ## Phase 9: Architecture & Diagnostics
 
