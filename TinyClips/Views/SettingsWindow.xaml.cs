@@ -32,8 +32,16 @@ public sealed partial class SettingsWindow : Window
     {
         InitializeComponent();
         Title = "TinyClips Settings";
-        if (Microsoft.UI.Composition.SystemBackdrops.MicaController.IsSupported())
-            this.SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
+        try
+        {
+            if (Microsoft.UI.Composition.SystemBackdrops.MicaController.IsSupported())
+                this.SystemBackdrop = new Microsoft.UI.Xaml.Media.MicaBackdrop();
+        }
+        catch (Exception ex)
+        {
+            AppLog.Error("Mica backdrop failed, using default", ex);
+            this.SystemBackdrop = null;
+        }
         _settings = CaptureSettings.Instance;
 
         _pages = [GeneralPage, ScreenshotPage, VideoPage, GifPage, ShortcutsPage, AboutPage];

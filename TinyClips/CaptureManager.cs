@@ -544,14 +544,25 @@ public sealed class CaptureManager : IDisposable
 
     public void ShowSettings()
     {
-        if (_settingsWindow != null)
+        try
         {
+            if (_settingsWindow != null)
+            {
+                _settingsWindow.Activate();
+                return;
+            }
+            _settingsWindow = new SettingsWindow();
+            _settingsWindow.Closed += (_, _) => _settingsWindow = null;
             _settingsWindow.Activate();
-            return;
         }
-        _settingsWindow = new SettingsWindow();
-        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
-        _settingsWindow.Activate();
+        catch (Exception ex)
+        {
+            AppLog.Error("Failed to open Settings window", ex);
+            _settingsWindow = null;
+            NotificationService.Instance.ShowErrorNotification(
+                "Settings Error",
+                $"Could not open settings: {ex.Message}");
+        }
     }
 
     public void ShowOnboarding()
