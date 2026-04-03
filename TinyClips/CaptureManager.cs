@@ -560,7 +560,6 @@ public sealed class CaptureManager : IDisposable
             AppLog.Error("Failed to open Settings window", ex);
             _settingsWindow = null;
             NotificationService.Instance.ShowErrorNotification(
-                "Settings Error",
                 $"Could not open settings: {ex.Message}");
         }
     }
