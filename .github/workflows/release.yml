@@ -106,3 +106,14 @@ jobs:
           files: |
             TinyClips-x64.zip
             TinyClips-arm64.zip
+
+  winget:
+    needs: release
+    runs-on: windows-latest
+
+    steps:
+      - uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: JanOdegard.TinyClips
+          installers-regex: '\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}
