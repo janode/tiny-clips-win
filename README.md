@@ -17,12 +17,24 @@ A polished Windows 11 system-tray app for screen capture — screenshots, video 
 - **Settings** — full WinUI 3 settings window with Mica backdrop, NavigationView sidebar
 - **First-run onboarding** — permission check + setup wizard
 
+## Installation
+
+### winget (recommended)
+
+```powershell
+winget install TinyClips
+```
+
+### Manual
+
+Download the latest release from the [Releases](https://github.com/jamesmontemagno/tiny-clips-windows/releases) page.
+
 ## Requirements
 
 | Requirement | Version |
 |---|---|
 | OS | Windows 10 1903+ (targeting Windows 11) |
-| .NET SDK | 10.0.201+ |
+| .NET SDK | 10.0.201+ (only needed for building from source) |
 | Windows App SDK | 1.8+ (bundled via NuGet) |
 
 Install the .NET 10 SDK from https://dotnet.microsoft.com/download/dotnet/10.0
