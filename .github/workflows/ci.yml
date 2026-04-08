@@ -38,7 +38,9 @@ jobs:
       - name: Upload build artifacts
         if: matrix.configuration == 'Release'
         uses: actions/upload-artifact@v5
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           name: TinyClips-${{ matrix.platform }}-${{ matrix.configuration }}
-          path: TinyClips/bin/${{ matrix.platform }}/${{ matrix.configuration }}/net10.0-windows10.0.22621.0/win-${{ matrix.platform }}/
+          path: TinyClips/bin/${{ matrix.platform }}/${{ matrix.configuration }}/net10.0-windows10.0.22621.0/
           retention-days: 14

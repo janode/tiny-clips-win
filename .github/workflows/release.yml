@@ -38,6 +38,8 @@ jobs:
 
       - name: Upload artifact
         uses: actions/upload-artifact@v5
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           name: TinyClips-${{ matrix.platform }}
           path: TinyClips-${{ matrix.platform }}.zip
@@ -53,11 +55,15 @@ jobs:
 
       - name: Download x64 artifact
         uses: actions/download-artifact@v5
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           name: TinyClips-x64
 
       - name: Download arm64 artifact
         uses: actions/download-artifact@v5
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           name: TinyClips-arm64
 
