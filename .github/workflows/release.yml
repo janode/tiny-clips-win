@@ -52,12 +52,12 @@ jobs:
           fetch-depth: 0
 
       - name: Download x64 artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: TinyClips-x64
 
       - name: Download arm64 artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: TinyClips-arm64
 
@@ -101,6 +101,8 @@ jobs:
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
         with:
           body: ${{ steps.notes.outputs.body }}
           files: |
