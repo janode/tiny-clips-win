@@ -8,6 +8,8 @@
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
             <FontIcon x:Name="ModeIcon" Glyph="&#xE714;" FontSize="14" />
@@ -19,6 +21,11 @@
                 <Ellipse Width="10" Height="10" Fill="#FF3B30" />
                 <TextBlock Text="Start" FontSize="13" />
             </StackPanel>
+        </Button>
+        <AppBarSeparator Grid.Column="3" />
+        <Button Grid.Column="4" Click="OnCancelClick" ToolTipService.ToolTip="Cancel (Esc)" AutomationProperties.Name="Cancel" Padding="0" Width="28" Height="28" CornerRadius="6"
+                Style="{ThemeResource SubtleButtonStyle}">
+            <FontIcon Glyph="&#xE711;" FontSize="11" />
         </Button>
     </Grid>
 </Window>

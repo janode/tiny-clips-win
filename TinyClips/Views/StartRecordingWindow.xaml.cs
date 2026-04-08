@@ -56,11 +56,15 @@ public sealed partial class StartRecordingWindow : Window
         int h = (int)(52 * scale);
         AppWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
 
-        // Restore saved position or center near the top of primary display
+        // Position at the same location as the capture picker for visual continuity
         var settings = CaptureSettings.Instance;
-        if (settings.StartPanelPositionX.HasValue && settings.StartPanelPositionY.HasValue)
+        if (settings.PickerPositionX.HasValue && settings.PickerPositionY.HasValue)
         {
-            AppWindow.Move(new Windows.Graphics.PointInt32(settings.StartPanelPositionX.Value, settings.StartPanelPositionY.Value));
+            // Center horizontally relative to where the picker was (picker is wider)
+            int pickerWidth = (int)(630 * scale);
+            int cx = settings.PickerPositionX.Value + (pickerWidth - w) / 2;
+            int cy = settings.PickerPositionY.Value;
+            AppWindow.Move(new Windows.Graphics.PointInt32(cx, cy));
         }
         else
         {
@@ -75,6 +79,8 @@ public sealed partial class StartRecordingWindow : Window
     }
 
     private void OnStartClick(object sender, RoutedEventArgs e) => FinishStart();
+
+    private void OnCancelClick(object sender, RoutedEventArgs e) => FinishCancel();
 
     private void OnKeyDown(object sender, KeyRoutedEventArgs e)
     {
@@ -109,12 +115,6 @@ public sealed partial class StartRecordingWindow : Window
 
     private void OnWindowClosed(object sender, WindowEventArgs e)
     {
-        var pos = AppWindow.Position;
-        var settings = CaptureSettings.Instance;
-        settings.StartPanelPositionX = pos.X;
-        settings.StartPanelPositionY = pos.Y;
-        settings.Save();
-
         if (!_didComplete)
         {
             OnCancelled?.Invoke();

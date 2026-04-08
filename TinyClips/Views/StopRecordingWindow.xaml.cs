@@ -84,20 +84,23 @@ public sealed partial class StopRecordingWindow : Window
         int h = (int)(52 * scale);
         AppWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
 
-        // Restore saved position or default to top-right
+        // Position at the same location as the capture picker for visual continuity
         var settings = Models.CaptureSettings.Instance;
-        if (settings.StopPanelPositionX.HasValue && settings.StopPanelPositionY.HasValue)
+        if (settings.PickerPositionX.HasValue && settings.PickerPositionY.HasValue)
         {
-            AppWindow.Move(new Windows.Graphics.PointInt32(settings.StopPanelPositionX.Value, settings.StopPanelPositionY.Value));
+            int pickerWidth = (int)(630 * scale);
+            int cx = settings.PickerPositionX.Value + (pickerWidth - w) / 2;
+            int cy = settings.PickerPositionY.Value;
+            AppWindow.Move(new Windows.Graphics.PointInt32(cx, cy));
         }
         else
         {
             var area = DisplayArea.Primary;
             if (area != null)
             {
-                int px = area.WorkArea.X + area.WorkArea.Width - w - (int)(20 * scale);
-                int py = area.WorkArea.Y + (int)(20 * scale);
-                AppWindow.Move(new Windows.Graphics.PointInt32(px, py));
+                int cx = area.WorkArea.X + (area.WorkArea.Width - w) / 2;
+                int cy = area.WorkArea.Y + (int)(60 * scale);
+                AppWindow.Move(new Windows.Graphics.PointInt32(cx, cy));
             }
         }
     }
@@ -117,17 +120,20 @@ public sealed partial class StopRecordingWindow : Window
         _timer?.Stop();
         _pulseAnimation?.Stop();
         OnStop?.Invoke();
-        Close();
+    }
+
+    public void ShowProcessing()
+    {
+        RecordingDot.Visibility = Visibility.Collapsed;
+        TimerText.Visibility = Visibility.Collapsed;
+        StopButton.Visibility = Visibility.Collapsed;
+        ProcessingRing.Visibility = Visibility.Visible;
+        ProcessingRing.IsActive = true;
+        ProcessingText.Visibility = Visibility.Visible;
     }
 
     private void OnWindowClosed(object sender, WindowEventArgs e)
     {
-        var pos = AppWindow.Position;
-        var settings = Models.CaptureSettings.Instance;
-        settings.StopPanelPositionX = pos.X;
-        settings.StopPanelPositionY = pos.Y;
-        settings.Save();
-
         _timer?.Stop();
         if (!_didComplete)
         {

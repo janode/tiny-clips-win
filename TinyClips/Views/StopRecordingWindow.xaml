@@ -9,6 +9,7 @@
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
+        <!-- Recording state -->
         <Ellipse x:Name="RecordingDot" Grid.Column="0" Width="10" Height="10" Fill="#FF3B30" VerticalAlignment="Center" AutomationProperties.Name="Recording in progress" />
         <TextBlock x:Name="TimerText" Grid.Column="1" Text="00:00.0" FontSize="15" FontFamily="Consolas" MinWidth="80" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorPrimaryBrush}" AutomationProperties.Name="Recording duration" />
         <Button x:Name="StopButton" Grid.Column="2" Click="OnStopClick" AutomationProperties.Name="Stop recording" ToolTipService.ToolTip="Stop recording (Ctrl+.)">
@@ -17,5 +18,8 @@
                 <TextBlock Text="Stop" FontSize="13" />
             </StackPanel>
         </Button>
+        <!-- Processing state -->
+        <ProgressRing x:Name="ProcessingRing" Grid.Column="0" Width="16" Height="16" IsActive="False" Visibility="Collapsed" VerticalAlignment="Center" />
+        <TextBlock x:Name="ProcessingText" Grid.Column="1" Grid.ColumnSpan="2" Text="Processing…" FontSize="13" VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Visibility="Collapsed" />
     </Grid>
 </Window>

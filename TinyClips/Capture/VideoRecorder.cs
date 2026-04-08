@@ -83,6 +83,9 @@ public sealed class VideoRecorder : IDisposable
 
     private void CaptureLoop()
     {
+        // COM init required for Media Foundation
+        int comHr = CoInitializeEx(nint.Zero, COINIT_MULTITHREADED);
+        bool comInitialized = comHr >= 0;
         try
         {
         Marshal.ThrowExceptionForHR(MFStartup(MF_VERSION, 0));
@@ -90,14 +93,19 @@ public sealed class VideoRecorder : IDisposable
         {
             // Build encoder — with audio stream if loopback is active
             WaveFormat? audioFormat = _recordAudio ? _audioCapture?.WaveFormat : null;
-            var encoder = new MFEncoder(_outputPath!, _captureRect.Width, _captureRect.Height, _fps, audioFormat);
+            // H.264 requires even width and height
+            int encWidth = _captureRect.Width & ~1;
+            int encHeight = _captureRect.Height & ~1;
+            if (encWidth < 2) encWidth = 2;
+            if (encHeight < 2) encHeight = 2;
+            var encoder = new MFEncoder(_outputPath!, encWidth, encHeight, _fps, audioFormat);
             try
             {
                 var frameInterval = TimeSpan.FromSeconds(1.0 / _fps);
                 long frameDuration = 10_000_000L / _fps; // 100-nanosecond units
                 long videoTimestamp = 0;
 
-                using var bitmap = new Bitmap(_captureRect.Width, _captureRect.Height, PixelFormat.Format32bppArgb);
+                using var bitmap = new Bitmap(encWidth, encHeight, PixelFormat.Format32bppArgb);
                 using var graphics = Graphics.FromImage(bitmap);
                 var stopwatch = Stopwatch.StartNew();
 
@@ -108,7 +116,7 @@ public sealed class VideoRecorder : IDisposable
                     try
                     {
                         graphics.CopyFromScreen(_captureRect.Left, _captureRect.Top, 0, 0,
-                            _captureRect.Size, CopyPixelOperation.SourceCopy);
+                            new Size(encWidth, encHeight), CopyPixelOperation.SourceCopy);
 
                         var bmpData = bitmap.LockBits(
                             new Rectangle(0, 0, bitmap.Width, bitmap.Height),
@@ -158,6 +166,10 @@ public sealed class VideoRecorder : IDisposable
             System.Diagnostics.Debug.WriteLine($"VideoRecorder CaptureLoop error: {ex.Message}");
             _captureError = ex;
         }
+        finally
+        {
+            if (comInitialized) CoUninitialize();
+        }
     }
 
     public void Dispose()
@@ -172,154 +184,277 @@ public sealed class VideoRecorder : IDisposable
         _audioCapture = null;
     }
 
-    // MARK: - Media Foundation Encoder
+    // MARK: - Media Foundation Encoder (raw vtable calls — no .NET COM interop)
 
     private sealed class MFEncoder : IDisposable
     {
-        private readonly IMFSinkWriter _writer;
+        private readonly int _width;
+        private readonly int _height;
+        private readonly nint _writer;
         private readonly int _videoStreamIndex;
         private readonly int _audioStreamIndex = -1;
         private readonly int _frameSize;
         private readonly bool _hasAudio;
 
-        public MFEncoder(string outputPath, int width, int height, int fps, WaveFormat? audioFormat)
+        public unsafe MFEncoder(string outputPath, int width, int height, int fps, WaveFormat? audioFormat)
         {
+            _width = width;
+            _height = height;
             _frameSize = width * height * 4;
             _hasAudio = audioFormat != null;
 
             // Output type: H.264
             Marshal.ThrowExceptionForHR(MFCreateMediaType(out var videoOutputType));
-            SetGUID(videoOutputType, MF_MT_MAJOR_TYPE, MFMediaType_Video);
-            SetGUID(videoOutputType, MF_MT_SUBTYPE, MFVideoFormat_H264);
-            SetUINT32(videoOutputType, MF_MT_AVG_BITRATE, Math.Max(1_000_000u, (uint)(width * height * fps / 4)));
-            SetUINT32(videoOutputType, MF_MT_INTERLACE_MODE, 2); // MFVideoInterlace_Progressive
-            SetUINT64(videoOutputType, MF_MT_FRAME_SIZE, Pack2x32((uint)width, (uint)height));
-            SetUINT64(videoOutputType, MF_MT_FRAME_RATE, Pack2x32((uint)fps, 1));
-            SetUINT64(videoOutputType, MF_MT_PIXEL_ASPECT_RATIO, Pack2x32(1, 1));
+            MF.SetGUID(videoOutputType, MF_MT_MAJOR_TYPE, MFMediaType_Video);
+            MF.SetGUID(videoOutputType, MF_MT_SUBTYPE, MFVideoFormat_H264);
+            MF.SetUINT32(videoOutputType, MF_MT_AVG_BITRATE, Math.Max(1_000_000u, (uint)(width * height * fps / 4)));
+            MF.SetUINT32(videoOutputType, MF_MT_INTERLACE_MODE, 2); // MFVideoInterlace_Progressive
+            MF.SetUINT64(videoOutputType, MF_MT_FRAME_SIZE, Pack2x32((uint)width, (uint)height));
+            MF.SetUINT64(videoOutputType, MF_MT_FRAME_RATE, Pack2x32((uint)fps, 1));
+            MF.SetUINT64(videoOutputType, MF_MT_PIXEL_ASPECT_RATIO, Pack2x32(1, 1));
 
             // Input type: RGB32 (matches GDI+ Format32bppArgb — both are BGRA in memory)
             Marshal.ThrowExceptionForHR(MFCreateMediaType(out var videoInputType));
-            SetGUID(videoInputType, MF_MT_MAJOR_TYPE, MFMediaType_Video);
-            SetGUID(videoInputType, MF_MT_SUBTYPE, MFVideoFormat_RGB32);
-            SetUINT32(videoInputType, MF_MT_INTERLACE_MODE, 2);
-            SetUINT64(videoInputType, MF_MT_FRAME_SIZE, Pack2x32((uint)width, (uint)height));
-            SetUINT64(videoInputType, MF_MT_FRAME_RATE, Pack2x32((uint)fps, 1));
-            SetUINT64(videoInputType, MF_MT_PIXEL_ASPECT_RATIO, Pack2x32(1, 1));
+            MF.SetGUID(videoInputType, MF_MT_MAJOR_TYPE, MFMediaType_Video);
+            MF.SetGUID(videoInputType, MF_MT_SUBTYPE, MFVideoFormat_RGB32);
+            MF.SetUINT32(videoInputType, MF_MT_INTERLACE_MODE, 2);
+            MF.SetUINT64(videoInputType, MF_MT_FRAME_SIZE, Pack2x32((uint)width, (uint)height));
+            MF.SetUINT64(videoInputType, MF_MT_FRAME_RATE, Pack2x32((uint)fps, 1));
+            MF.SetUINT64(videoInputType, MF_MT_PIXEL_ASPECT_RATIO, Pack2x32(1, 1));
 
             // Create sink writer — .mp4 extension auto-selects MPEG-4 container
             Marshal.ThrowExceptionForHR(MFCreateSinkWriterFromURL(
                 outputPath, nint.Zero, nint.Zero, out _writer));
-            Marshal.ThrowExceptionForHR(_writer.AddStream(videoOutputType, out _videoStreamIndex));
-            Marshal.ThrowExceptionForHR(_writer.SetInputMediaType(_videoStreamIndex, videoInputType, nint.Zero));
 
-            Marshal.ReleaseComObject(videoInputType);
-            Marshal.ReleaseComObject(videoOutputType);
+            int streamIdx;
+            Marshal.ThrowExceptionForHR(MF.SinkWriter_AddStream(_writer, videoOutputType, &streamIdx));
+            _videoStreamIndex = streamIdx;
+            Marshal.ThrowExceptionForHR(MF.SinkWriter_SetInputMediaType(_writer, _videoStreamIndex, videoInputType, nint.Zero));
+
+            MF.Release(videoInputType);
+            MF.Release(videoOutputType);
 
             // Audio stream: AAC output, PCM Float input (WASAPI loopback native format)
             if (_hasAudio && audioFormat != null)
             {
                 // Output type: AAC
                 Marshal.ThrowExceptionForHR(MFCreateMediaType(out var audioOutputType));
-                SetGUID(audioOutputType, MF_MT_MAJOR_TYPE, MFMediaType_Audio);
-                SetGUID(audioOutputType, MF_MT_SUBTYPE, MFAudioFormat_AAC);
-                SetUINT32(audioOutputType, MF_MT_AUDIO_BITS_PER_SAMPLE, 16);
-                SetUINT32(audioOutputType, MF_MT_AUDIO_SAMPLES_PER_SECOND, (uint)audioFormat.SampleRate);
-                SetUINT32(audioOutputType, MF_MT_AUDIO_NUM_CHANNELS, (uint)audioFormat.Channels);
-                SetUINT32(audioOutputType, MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 24000u); // ~192 kbps AAC
-                SetUINT32(audioOutputType, MF_MT_AUDIO_BLOCK_ALIGNMENT, 1);
+                MF.SetGUID(audioOutputType, MF_MT_MAJOR_TYPE, MFMediaType_Audio);
+                MF.SetGUID(audioOutputType, MF_MT_SUBTYPE, MFAudioFormat_AAC);
+                MF.SetUINT32(audioOutputType, MF_MT_AUDIO_BITS_PER_SAMPLE, 16);
+                MF.SetUINT32(audioOutputType, MF_MT_AUDIO_SAMPLES_PER_SECOND, (uint)audioFormat.SampleRate);
+                MF.SetUINT32(audioOutputType, MF_MT_AUDIO_NUM_CHANNELS, (uint)audioFormat.Channels);
+                MF.SetUINT32(audioOutputType, MF_MT_AUDIO_AVG_BYTES_PER_SECOND, 24000u); // ~192 kbps AAC
+                MF.SetUINT32(audioOutputType, MF_MT_AUDIO_BLOCK_ALIGNMENT, 1);
 
                 // Input type: IEEE Float PCM (native WASAPI loopback format)
                 Marshal.ThrowExceptionForHR(MFCreateMediaType(out var audioInputType));
-                SetGUID(audioInputType, MF_MT_MAJOR_TYPE, MFMediaType_Audio);
-                SetGUID(audioInputType, MF_MT_SUBTYPE, MFAudioFormat_Float);
-                SetUINT32(audioInputType, MF_MT_AUDIO_BITS_PER_SAMPLE, (uint)audioFormat.BitsPerSample);
-                SetUINT32(audioInputType, MF_MT_AUDIO_SAMPLES_PER_SECOND, (uint)audioFormat.SampleRate);
-                SetUINT32(audioInputType, MF_MT_AUDIO_NUM_CHANNELS, (uint)audioFormat.Channels);
-                SetUINT32(audioInputType, MF_MT_AUDIO_AVG_BYTES_PER_SECOND, (uint)audioFormat.AverageBytesPerSecond);
-                SetUINT32(audioInputType, MF_MT_AUDIO_BLOCK_ALIGNMENT, (uint)audioFormat.BlockAlign);
+                MF.SetGUID(audioInputType, MF_MT_MAJOR_TYPE, MFMediaType_Audio);
+                MF.SetGUID(audioInputType, MF_MT_SUBTYPE, MFAudioFormat_Float);
+                MF.SetUINT32(audioInputType, MF_MT_AUDIO_BITS_PER_SAMPLE, (uint)audioFormat.BitsPerSample);
+                MF.SetUINT32(audioInputType, MF_MT_AUDIO_SAMPLES_PER_SECOND, (uint)audioFormat.SampleRate);
+                MF.SetUINT32(audioInputType, MF_MT_AUDIO_NUM_CHANNELS, (uint)audioFormat.Channels);
+                MF.SetUINT32(audioInputType, MF_MT_AUDIO_AVG_BYTES_PER_SECOND, (uint)audioFormat.AverageBytesPerSecond);
+                MF.SetUINT32(audioInputType, MF_MT_AUDIO_BLOCK_ALIGNMENT, (uint)audioFormat.BlockAlign);
 
-                Marshal.ThrowExceptionForHR(_writer.AddStream(audioOutputType, out _audioStreamIndex));
-                Marshal.ThrowExceptionForHR(_writer.SetInputMediaType(_audioStreamIndex, audioInputType, nint.Zero));
+                int audioIdx;
+                Marshal.ThrowExceptionForHR(MF.SinkWriter_AddStream(_writer, audioOutputType, &audioIdx));
+                _audioStreamIndex = audioIdx;
+                Marshal.ThrowExceptionForHR(MF.SinkWriter_SetInputMediaType(_writer, _audioStreamIndex, audioInputType, nint.Zero));
 
-                Marshal.ReleaseComObject(audioInputType);
-                Marshal.ReleaseComObject(audioOutputType);
+                MF.Release(audioInputType);
+                MF.Release(audioOutputType);
             }
 
-            Marshal.ThrowExceptionForHR(_writer.BeginWriting());
+            Marshal.ThrowExceptionForHR(MF.SinkWriter_BeginWriting(_writer));
         }
 
-        public void WriteVideoFrame(nint frameData, int dataLength, long timestamp, long duration)
+        public unsafe void WriteVideoFrame(nint frameData, int dataLength, long timestamp, long duration)
         {
             Marshal.ThrowExceptionForHR(MFCreateMemoryBuffer(_frameSize, out var buffer));
             try
             {
-                buffer.Lock(out var pbData, out _, out _);
+                nint pbData; int maxLen, curLen;
+                MF.Buffer_Lock(buffer, &pbData, &maxLen, &curLen);
                 try
                 {
-                    unsafe
+                    // Flip top-down (GDI+) to bottom-up (MF RGB32 default)
+                    int stride = _width * 4;
+                    byte* src = (byte*)frameData;
+                    byte* dst = (byte*)pbData;
+                    for (int y = 0; y < _height; y++)
                     {
-                        Buffer.MemoryCopy((void*)frameData, (void*)pbData,
-                            _frameSize, Math.Min(dataLength, _frameSize));
+                        Buffer.MemoryCopy(
+                            src + (nint)y * stride,
+                            dst + (nint)(_height - 1 - y) * stride,
+                            stride, stride);
                     }
                 }
-                finally { buffer.Unlock(); }
-                buffer.SetCurrentLength(_frameSize);
+                finally { MF.Buffer_Unlock(buffer); }
+                MF.Buffer_SetCurrentLength(buffer, _frameSize);
 
                 Marshal.ThrowExceptionForHR(MFCreateSample(out var sample));
                 try
                 {
-                    sample.AddBuffer(buffer);
-                    sample.SetSampleTime(timestamp);
-                    sample.SetSampleDuration(duration);
-                    Marshal.ThrowExceptionForHR(_writer.WriteSample(_videoStreamIndex, sample));
+                    MF.Sample_AddBuffer(sample, buffer);
+                    MF.Sample_SetSampleTime(sample, timestamp);
+                    MF.Sample_SetSampleDuration(sample, duration);
+                    Marshal.ThrowExceptionForHR(MF.SinkWriter_WriteSample(_writer, _videoStreamIndex, sample));
                 }
-                finally { Marshal.ReleaseComObject(sample); }
+                finally { MF.Release(sample); }
             }
-            finally { Marshal.ReleaseComObject(buffer); }
+            finally { MF.Release(buffer); }
         }
 
-        public void WriteAudioSamples(byte[] data, long timestamp, long duration)
+        public unsafe void WriteAudioSamples(byte[] data, long timestamp, long duration)
         {
             if (!_hasAudio || _audioStreamIndex < 0) return;
 
             Marshal.ThrowExceptionForHR(MFCreateMemoryBuffer(data.Length, out var buffer));
             try
             {
-                buffer.Lock(out var pbData, out _, out _);
+                nint pbData; int maxLen, curLen;
+                MF.Buffer_Lock(buffer, &pbData, &maxLen, &curLen);
                 try
                 {
                     Marshal.Copy(data, 0, pbData, data.Length);
                 }
-                finally { buffer.Unlock(); }
-                buffer.SetCurrentLength(data.Length);
+                finally { MF.Buffer_Unlock(buffer); }
+                MF.Buffer_SetCurrentLength(buffer, data.Length);
 
                 Marshal.ThrowExceptionForHR(MFCreateSample(out var sample));
                 try
                 {
-                    sample.AddBuffer(buffer);
-                    sample.SetSampleTime(timestamp);
-                    sample.SetSampleDuration(duration);
-                    Marshal.ThrowExceptionForHR(_writer.WriteSample(_audioStreamIndex, sample));
+                    MF.Sample_AddBuffer(sample, buffer);
+                    MF.Sample_SetSampleTime(sample, timestamp);
+                    MF.Sample_SetSampleDuration(sample, duration);
+                    Marshal.ThrowExceptionForHR(MF.SinkWriter_WriteSample(_writer, _audioStreamIndex, sample));
                 }
-                finally { Marshal.ReleaseComObject(sample); }
+                finally { MF.Release(sample); }
             }
-            finally { Marshal.ReleaseComObject(buffer); }
+            finally { MF.Release(buffer); }
         }
 
-        public void Finish() => _writer.FinalizeWriting();
+        public void Finish() => MF.SinkWriter_Finalize(_writer);
 
-        public void Dispose() => Marshal.ReleaseComObject(_writer);
-
-        private static void SetGUID(IMFMediaType type, Guid key, Guid value)
-            => Marshal.ThrowExceptionForHR(type.SetGUID(ref key, ref value));
-
-        private static void SetUINT32(IMFMediaType type, Guid key, uint value)
-            => Marshal.ThrowExceptionForHR(type.SetUINT32(ref key, value));
-
-        private static void SetUINT64(IMFMediaType type, Guid key, ulong value)
-            => Marshal.ThrowExceptionForHR(type.SetUINT64(ref key, value));
+        public void Dispose() => MF.Release(_writer);
 
         private static ulong Pack2x32(uint hi, uint lo) => ((ulong)hi << 32) | lo;
+    }
+
+    // MARK: - Raw COM vtable helpers (bypasses .NET COM interop entirely)
+
+    private static unsafe class MF
+    {
+        // IUnknown::Release — vtable[2]
+        public static uint Release(nint obj)
+        {
+            var vtable = *(nint**)obj;
+            return ((delegate* unmanaged[Stdcall]<nint, uint>)vtable[2])(obj);
+        }
+
+        // IMFAttributes::SetUINT32 — vtable[21]  (IUnknown=3 + IMFAttributes index 18)
+        public static void SetUINT32(nint obj, Guid key, uint value)
+        {
+            var vtable = *(nint**)obj;
+            Marshal.ThrowExceptionForHR(
+                ((delegate* unmanaged[Stdcall]<nint, Guid*, uint, int>)vtable[21])(obj, &key, value));
+        }
+
+        // IMFAttributes::SetUINT64 — vtable[22]  (IUnknown=3 + IMFAttributes index 19)
+        public static void SetUINT64(nint obj, Guid key, ulong value)
+        {
+            var vtable = *(nint**)obj;
+            Marshal.ThrowExceptionForHR(
+                ((delegate* unmanaged[Stdcall]<nint, Guid*, ulong, int>)vtable[22])(obj, &key, value));
+        }
+
+        // IMFAttributes::SetGUID — vtable[24]  (IUnknown=3 + IMFAttributes index 21)
+        public static void SetGUID(nint obj, Guid key, Guid value)
+        {
+            var vtable = *(nint**)obj;
+            Marshal.ThrowExceptionForHR(
+                ((delegate* unmanaged[Stdcall]<nint, Guid*, Guid*, int>)vtable[24])(obj, &key, &value));
+        }
+
+        // IMFSinkWriter::AddStream — vtable[3]
+        public static int SinkWriter_AddStream(nint writer, nint mediaType, int* streamIndex)
+        {
+            var vtable = *(nint**)writer;
+            return ((delegate* unmanaged[Stdcall]<nint, nint, int*, int>)vtable[3])(writer, mediaType, streamIndex);
+        }
+
+        // IMFSinkWriter::SetInputMediaType — vtable[4]
+        public static int SinkWriter_SetInputMediaType(nint writer, int streamIndex, nint inputType, nint encodingParams)
+        {
+            var vtable = *(nint**)writer;
+            return ((delegate* unmanaged[Stdcall]<nint, int, nint, nint, int>)vtable[4])(writer, streamIndex, inputType, encodingParams);
+        }
+
+        // IMFSinkWriter::BeginWriting — vtable[5]
+        public static int SinkWriter_BeginWriting(nint writer)
+        {
+            var vtable = *(nint**)writer;
+            return ((delegate* unmanaged[Stdcall]<nint, int>)vtable[5])(writer);
+        }
+
+        // IMFSinkWriter::WriteSample — vtable[6]
+        public static int SinkWriter_WriteSample(nint writer, int streamIndex, nint sample)
+        {
+            var vtable = *(nint**)writer;
+            return ((delegate* unmanaged[Stdcall]<nint, int, nint, int>)vtable[6])(writer, streamIndex, sample);
+        }
+
+        // IMFSinkWriter::Finalize — vtable[11]
+        public static void SinkWriter_Finalize(nint writer)
+        {
+            var vtable = *(nint**)writer;
+            Marshal.ThrowExceptionForHR(
+                ((delegate* unmanaged[Stdcall]<nint, int>)vtable[11])(writer));
+        }
+
+        // IMFSample::SetSampleTime — vtable[36]  (IUnknown=3 + IMFAttributes=30 + index 3)
+        public static void Sample_SetSampleTime(nint sample, long time)
+        {
+            var vtable = *(nint**)sample;
+            ((delegate* unmanaged[Stdcall]<nint, long, int>)vtable[36])(sample, time);
+        }
+
+        // IMFSample::SetSampleDuration — vtable[38]  (IUnknown=3 + IMFAttributes=30 + index 5)
+        public static void Sample_SetSampleDuration(nint sample, long duration)
+        {
+            var vtable = *(nint**)sample;
+            ((delegate* unmanaged[Stdcall]<nint, long, int>)vtable[38])(sample, duration);
+        }
+
+        // IMFSample::AddBuffer — vtable[42]  (IUnknown=3 + IMFAttributes=30 + index 9)
+        public static void Sample_AddBuffer(nint sample, nint buffer)
+        {
+            var vtable = *(nint**)sample;
+            ((delegate* unmanaged[Stdcall]<nint, nint, int>)vtable[42])(sample, buffer);
+        }
+
+        // IMFMediaBuffer::Lock — vtable[3]
+        public static void Buffer_Lock(nint buffer, nint* ppbBuffer, int* pcbMaxLength, int* pcbCurrentLength)
+        {
+            var vtable = *(nint**)buffer;
+            Marshal.ThrowExceptionForHR(
+                ((delegate* unmanaged[Stdcall]<nint, nint*, int*, int*, int>)vtable[3])(buffer, ppbBuffer, pcbMaxLength, pcbCurrentLength));
+        }
+
+        // IMFMediaBuffer::Unlock — vtable[4]
+        public static void Buffer_Unlock(nint buffer)
+        {
+            var vtable = *(nint**)buffer;
+            ((delegate* unmanaged[Stdcall]<nint, int>)vtable[4])(buffer);
+        }
+
+        // IMFMediaBuffer::SetCurrentLength — vtable[6]
+        public static void Buffer_SetCurrentLength(nint buffer, int length)
+        {
+            var vtable = *(nint**)buffer;
+            ((delegate* unmanaged[Stdcall]<nint, int, int>)vtable[6])(buffer, length);
+        }
     }
 
     // MARK: - Media Foundation P/Invoke
@@ -347,6 +482,15 @@ public sealed class VideoRecorder : IDisposable
     private static Guid MF_MT_AUDIO_NUM_CHANNELS = new("37e48bf5-645e-4c5b-89de-ada9e29b696a");
     private static Guid MF_MT_AUDIO_AVG_BYTES_PER_SECOND = new("1aab75c8-cfef-451c-ab95-ac034b8e1731");
     private static Guid MF_MT_AUDIO_BLOCK_ALIGNMENT = new("322de230-9eeb-43bd-ab7a-ff412251541d");
+    private static Guid MF_MT_DEFAULT_STRIDE = new("644b4e48-1e02-4516-b0eb-c01ca9d49ac5");
+
+    private const uint COINIT_MULTITHREADED = 0x0;
+
+    [DllImport("ole32.dll")]
+    private static extern int CoInitializeEx(nint pvReserved, uint dwCoInit);
+
+    [DllImport("ole32.dll")]
+    private static extern void CoUninitialize();
 
     [DllImport("mfplat.dll")]
     private static extern int MFStartup(uint version, uint dwFlags);
@@ -355,148 +499,16 @@ public sealed class VideoRecorder : IDisposable
     private static extern int MFShutdown();
 
     [DllImport("mfplat.dll")]
-    private static extern int MFCreateMediaType(
-        [MarshalAs(UnmanagedType.Interface)] out IMFMediaType ppMFType);
+    private static extern int MFCreateMediaType(out nint ppMFType);
 
     [DllImport("mfplat.dll")]
-    private static extern int MFCreateSample(
-        [MarshalAs(UnmanagedType.Interface)] out IMFSample ppIMFSample);
+    private static extern int MFCreateSample(out nint ppIMFSample);
 
     [DllImport("mfplat.dll")]
-    private static extern int MFCreateMemoryBuffer(
-        int cbMaxLength, [MarshalAs(UnmanagedType.Interface)] out IMFMediaBuffer ppBuffer);
+    private static extern int MFCreateMemoryBuffer(int cbMaxLength, out nint ppBuffer);
 
     [DllImport("mfreadwrite.dll", CharSet = CharSet.Unicode)]
     private static extern int MFCreateSinkWriterFromURL(
         [MarshalAs(UnmanagedType.LPWStr)] string pwszOutputURL,
-        nint pByteStream, nint pAttributes,
-        [MarshalAs(UnmanagedType.Interface)] out IMFSinkWriter ppSinkWriter);
-
-    // MARK: - Media Foundation COM Interfaces
-
-    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    [Guid("a27003cf-2354-4f2a-8d6a-ab7cff15437e")]
-    private interface IMFSinkWriter
-    {
-        [PreserveSig] int AddStream([MarshalAs(UnmanagedType.Interface)] IMFMediaType pTargetMediaType, out int pdwStreamIndex);
-        [PreserveSig] int SetInputMediaType(int dwStreamIndex, [MarshalAs(UnmanagedType.Interface)] IMFMediaType pInputMediaType, nint pEncodingParameters);
-        [PreserveSig] int BeginWriting();
-        [PreserveSig] int WriteSample(int dwStreamIndex, [MarshalAs(UnmanagedType.Interface)] IMFSample pSample);
-        [PreserveSig] int SendStreamTick(int dwStreamIndex, long llTimestamp);
-        [PreserveSig] int PlaceMarker(int dwStreamIndex, nint pvContext);
-        [PreserveSig] int NotifyEndOfSegment(int dwStreamIndex);
-        [PreserveSig] int Flush(int dwStreamIndex);
-        [PreserveSig] int FinalizeWriting();
-        [PreserveSig] int GetServiceForStream(int dwStreamIndex, ref Guid guidService, ref Guid riid, out nint ppvObject);
-        [PreserveSig] int GetStatistics(int dwStreamIndex, nint pStats);
-    }
-
-    // IMFMediaType — includes all 30 IMFAttributes methods + 5 IMFMediaType methods
-    // Stubs for unused methods maintain correct vtable layout
-    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    [Guid("44ae0fa8-ea31-4109-8d2e-4cae4997c555")]
-    private interface IMFMediaType
-    {
-        // IMFAttributes methods (30 — indices 0–29)
-        void GetItem();                     // 0
-        void GetItemType();                 // 1
-        void CompareItem();                 // 2
-        void Compare();                     // 3
-        void GetUINT32_();                  // 4
-        void GetUINT64_();                  // 5
-        void GetDouble_();                  // 6
-        void GetGUID_();                    // 7
-        void GetStringLength();             // 8
-        void GetString();                   // 9
-        void GetAllocatedString();          // 10
-        void GetBlobSize();                 // 11
-        void GetBlob();                     // 12
-        void GetAllocatedBlob();            // 13
-        void GetUnknown();                  // 14
-        void SetItem();                     // 15
-        void DeleteItem();                  // 16
-        void DeleteAllItems();              // 17
-        [PreserveSig] int SetUINT32([In] ref Guid guidKey, uint unValue);   // 18
-        [PreserveSig] int SetUINT64([In] ref Guid guidKey, ulong unValue);  // 19
-        void SetDouble();                   // 20
-        [PreserveSig] int SetGUID([In] ref Guid guidKey, [In] ref Guid guidValue);  // 21
-        void SetString();                   // 22
-        void SetBlob();                     // 23
-        void SetUnknown();                  // 24
-        void LockStore();                   // 25
-        void UnlockStore();                 // 26
-        void GetCount();                    // 27
-        void GetItemByIndex();              // 28
-        void CopyAllItems();                // 29
-        // IMFMediaType methods (5 — indices 30–34)
-        void GetMajorType();                // 30
-        void IsCompressedFormat();          // 31
-        void IsEqual();                     // 32
-        void GetRepresentation();           // 33
-        void FreeRepresentation();          // 34
-    }
-
-    // IMFSample — includes all 30 IMFAttributes methods + 14 IMFSample methods
-    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    [Guid("c40a00f2-b93a-4d80-ae8c-5a1c634f58e4")]
-    private interface IMFSample
-    {
-        // IMFAttributes methods (30 — indices 0–29)
-        void GetItem();
-        void GetItemType();
-        void CompareItem();
-        void Compare();
-        void GetUINT32_();
-        void GetUINT64_();
-        void GetDouble_();
-        void GetGUID_();
-        void GetStringLength();
-        void GetString();
-        void GetAllocatedString();
-        void GetBlobSize();
-        void GetBlob();
-        void GetAllocatedBlob();
-        void GetUnknown();
-        void SetItem();
-        void DeleteItem();
-        void DeleteAllItems();
-        void SetUINT32();
-        void SetUINT64();
-        void SetDouble();
-        void SetGUID();
-        void SetString();
-        void SetBlob();
-        void SetUnknown();
-        void LockStore();
-        void UnlockStore();
-        void GetCount();
-        void GetItemByIndex();
-        void CopyAllItems();
-        // IMFSample methods (14 — indices 30–43)
-        void GetSampleFlags();              // 30
-        void SetSampleFlags();              // 31
-        void GetSampleTime();               // 32
-        void SetSampleTime(long hnsSampleTime);           // 33
-        void GetSampleDuration();           // 34
-        void SetSampleDuration(long hnsSampleDuration);   // 35
-        void GetBufferCount();              // 36
-        void GetBufferByIndex();            // 37
-        void ConvertToContiguousBuffer();   // 38
-        void AddBuffer([MarshalAs(UnmanagedType.Interface)] IMFMediaBuffer pBuffer);  // 39
-        void RemoveBufferByIndex();         // 40
-        void RemoveAllBuffers();            // 41
-        void GetTotalLength();              // 42
-        void CopyToBuffer();                // 43
-    }
-
-    [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    [Guid("045FA593-8799-42b8-BC8D-8968C6453507")]
-    private interface IMFMediaBuffer
-    {
-        void Lock(out nint ppbBuffer, out int pcbMaxLength, out int pcbCurrentLength);
-        void Unlock();
-        void GetCurrentLength(out int pcbCurrentLength);
-        void SetCurrentLength(int cbCurrentLength);
-        void GetMaxLength(out int pcbMaxLength);
-    }
+        nint pByteStream, nint pAttributes, out nint ppSinkWriter);
 }

@@ -74,18 +74,21 @@ public partial class App : Application
             Title = "TinyClips"
         };
 
-        // Get the HWND and hide the window completely
+        // Get the HWND before Activate() so we can hide it pre-emptively
         HiddenWindowHandle = WindowNative.GetWindowHandle(_hiddenWindow);
         MainDispatcherQueue = Microsoft.UI.Dispatching.DispatcherQueue.GetForCurrentThread();
 
-        // Activate first so WinUI considers the app "alive", then hide
-        _hiddenWindow.Activate();
-        NativeMethods.ShowWindow(HiddenWindowHandle, NativeMethods.SW_HIDE);
-
-        // Remove from taskbar
+        // Make invisible BEFORE Activate(): apply WS_EX_TOOLWINDOW (hides from
+        // taskbar/Alt+Tab) and move to 0×0 size off-screen so nothing flashes.
         var exStyle = NativeMethods.GetWindowLongPtr(HiddenWindowHandle, NativeMethods.GWL_EXSTYLE);
         NativeMethods.SetWindowLongPtr(HiddenWindowHandle, NativeMethods.GWL_EXSTYLE,
             exStyle | NativeMethods.WS_EX_TOOLWINDOW);
+        NativeMethods.SetWindowPos(HiddenWindowHandle, nint.Zero,
+            -32000, -32000, 0, 0, NativeMethods.SWP_NOACTIVATE);
+
+        // Activate so WinUI considers the app "alive", then immediately hide
+        _hiddenWindow.Activate();
+        NativeMethods.ShowWindow(HiddenWindowHandle, NativeMethods.SW_HIDE);
 
         // Initialize services
         _captureManager = new CaptureManager();
@@ -112,11 +115,16 @@ public partial class App : Application
         presenterStyle.Setters.Add(new Setter(MenuFlyoutPresenter.PaddingProperty, new Thickness(0, 4, 0, 4)));
         contextMenu.MenuFlyoutPresenterStyle = presenterStyle;
 
+        // H.NotifyIcon PopupMenu mode runs Command handlers on a background thread
+        // (the tray icon's internal message loop). WinUI windows must be created on
+        // the UI thread, so dispatch all actions through MainDispatcherQueue.
+        void DispatchToUI(Action action) => MainDispatcherQueue!.TryEnqueue(() => action());
+
         var screenshotItem = new MenuFlyoutItem
         {
             Text = "Screenshot…",
             Icon = new FontIcon { Glyph = "\uE722" },
-            Command = new RelayCommand(() => _captureManager?.TakeScreenshot()),
+            Command = new RelayCommand(() => DispatchToUI(() => _captureManager?.TakeScreenshot())),
             MinWidth = 200
         };
 
@@ -124,7 +132,7 @@ public partial class App : Application
         {
             Text = "Record Video…",
             Icon = new FontIcon { Glyph = "\uE714" },
-            Command = new RelayCommand(() => _captureManager?.StartVideoRecording()),
+            Command = new RelayCommand(() => DispatchToUI(() => _captureManager?.StartVideoRecording())),
             MinWidth = 200
         };
 
@@ -132,7 +140,7 @@ public partial class App : Application
         {
             Text = "Record GIF…",
             Icon = new FontIcon { Glyph = "\uEB9F" },
-            Command = new RelayCommand(() => _captureManager?.StartGifRecording()),
+            Command = new RelayCommand(() => DispatchToUI(() => _captureManager?.StartGifRecording())),
             MinWidth = 200
         };
 
@@ -142,7 +150,7 @@ public partial class App : Application
         {
             Text = "Settings…",
             Icon = new FontIcon { Glyph = "\uE713" },
-            Command = new RelayCommand(() => _captureManager?.ShowSettings()),
+            Command = new RelayCommand(() => DispatchToUI(() => _captureManager?.ShowSettings())),
             MinWidth = 200
         };
 
@@ -152,7 +160,7 @@ public partial class App : Application
         {
             Text = "Quit TinyClips",
             Icon = new FontIcon { Glyph = "\uE7E8" },
-            Command = new RelayCommand(Quit),
+            Command = new RelayCommand(() => DispatchToUI(Quit)),
             MinWidth = 200
         };
 

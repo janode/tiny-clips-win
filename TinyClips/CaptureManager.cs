@@ -297,6 +297,9 @@ public sealed class CaptureManager : IDisposable
 
     private async Task StopRecordingFlow()
     {
+        _stopWindow?.FinishStop();
+        _stopWindow?.ShowProcessing();
+
         if (_videoRecorder is { } recorder)
         {
             try

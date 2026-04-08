@@ -111,8 +111,8 @@ public sealed class WindowSelectorWindow : IDisposable
             _virtualBounds.Width, _virtualBounds.Height,
             nint.Zero, nint.Zero, hInstance, nint.Zero);
 
-        // Color key (magenta) = fully transparent; alpha = dim the rest
-        SetLayeredWindowAttributes(_hwnd, ColorKey, 160, 0x01 | 0x02);
+        // Color key (magenta) = fully transparent; alpha = dim for non-highlighted areas
+        SetLayeredWindowAttributes(_hwnd, ColorKey, 120, 0x01 | 0x02);
 
         _dpiScale = NativeMethods.GetDpiForWindow(_hwnd) / 96.0;
         if (_dpiScale < 1.0) _dpiScale = 1.0;
@@ -237,6 +237,25 @@ public sealed class WindowSelectorWindow : IDisposable
             SelectObject(hdc, oldFont);
             DeleteObject(font);
         }
+
+        // Instruction text at top center
+        int instrFontSize = Math.Max(28, (int)(28 * _dpiScale));
+        var instrFont = CreateFont(instrFontSize, 0, 0, 0, 600, 0, 0, 0, 1, 0, 0, 4, 0, "Segoe UI");
+        var oldInstrFont = SelectObject(hdc, instrFont);
+        SetTextColor(hdc, 0x00FFFFFF);
+        SetBkMode(hdc, 1); // TRANSPARENT
+        string instrText = "Click a window to capture  \u2022  Esc to cancel";
+        int instrY = Math.Max(32, (int)(32 * _dpiScale));
+        var instrRect = new RECT_GDI
+        {
+            Left = 0,
+            Top = instrY,
+            Right = clientRect.Right,
+            Bottom = instrY + (int)(40 * _dpiScale)
+        };
+        DrawText(hdc, instrText, -1, ref instrRect, 0x01); // DT_CENTER
+        SelectObject(hdc, oldInstrFont);
+        DeleteObject(instrFont);
 
         EndPaint(hwnd, ref ps);
     }

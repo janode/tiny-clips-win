@@ -46,7 +46,7 @@ public sealed partial class CapturePickerWindow : Window
 
         // Size and position immediately using Win32 DPI (before Activate)
         double scale = NativeMethods.GetDpiForWindow(hwnd) / 96.0;
-        int w = (int)(700 * scale);
+        int w = (int)(630 * scale);
         int h = (int)(68 * scale);
         AppWindow.Resize(new Windows.Graphics.SizeInt32(w, h));
 
@@ -162,15 +162,12 @@ public sealed partial class CapturePickerWindow : Window
         {
             case CaptureType.Screenshot:
                 ModeIcon.Glyph = "\uE722"; // Camera
-                ModeLabel.Text = "Screenshot";
                 break;
             case CaptureType.Video:
                 ModeIcon.Glyph = "\uE714"; // Video
-                ModeLabel.Text = "Video";
                 break;
             case CaptureType.Gif:
                 ModeIcon.Glyph = "\uEB9F"; // Photo stack
-                ModeLabel.Text = "GIF";
                 break;
         }
     }
