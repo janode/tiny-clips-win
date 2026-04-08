@@ -37,9 +37,7 @@ jobs:
         run: Compress-Archive -Path publish/${{ matrix.platform }}/* -DestinationPath TinyClips-${{ matrix.platform }}.zip
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v5
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        uses: actions/upload-artifact@v6
         with:
           name: TinyClips-${{ matrix.platform }}
           path: TinyClips-${{ matrix.platform }}.zip
@@ -54,16 +52,12 @@ jobs:
           fetch-depth: 0
 
       - name: Download x64 artifact
-        uses: actions/download-artifact@v5
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        uses: actions/download-artifact@v6
         with:
           name: TinyClips-x64
 
       - name: Download arm64 artifact
-        uses: actions/download-artifact@v5
-        env:
-          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        uses: actions/download-artifact@v6
         with:
           name: TinyClips-arm64
 
