@@ -18,9 +18,9 @@ public sealed class NotificationService : INotificationService
             AppNotificationManager.Default.NotificationInvoked += OnNotificationInvoked;
             AppNotificationManager.Default.Register();
         }
-        catch
+        catch (Exception ex)
         {
-            // Notification registration may fail on some configurations
+            AppLog.Error("Notification registration failed", ex);
         }
     }
 

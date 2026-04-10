@@ -30,9 +30,9 @@ public static class ClipboardHelper
             Clipboard.SetContent(dataPackage);
             Clipboard.Flush();
         }
-        catch
+        catch (Exception ex)
         {
-            // Clipboard access can fail — non-fatal
+            AppLog.Error("Clipboard copy failed", ex);
         }
     }
 }

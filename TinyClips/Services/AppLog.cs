@@ -13,7 +13,22 @@ internal static class AppLog
     private static readonly object _lock = new();
 
     internal static void Error(string message, Exception? ex = null) =>
-        Write("ERROR", ex is null ? message : $"{message}: {ex.Message}");
+        Write("ERROR", ex is null ? message : $"{message}: {FormatException(ex)}");
+
+    private static string FormatException(Exception ex)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"[{ex.GetType().Name}] {ex.Message}");
+        var inner = ex.InnerException;
+        while (inner != null)
+        {
+            sb.Append($" -> [{inner.GetType().Name}] {inner.Message}");
+            inner = inner.InnerException;
+        }
+        if (ex.StackTrace != null)
+            sb.Append($"\n  StackTrace: {ex.StackTrace}");
+        return sb.ToString();
+    }
 
     internal static void Info(string message) => Write("INFO", message);
 

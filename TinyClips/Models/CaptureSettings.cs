@@ -94,9 +94,9 @@ public sealed class CaptureSettings
             var json = JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(SettingsPath, json);
         }
-        catch
+        catch (Exception ex)
         {
-            // Settings save failure is non-fatal
+            Services.AppLog.Error("Settings save failed", ex);
         }
     }
 
@@ -110,9 +110,9 @@ public sealed class CaptureSettings
                 return JsonSerializer.Deserialize<CaptureSettings>(json) ?? new CaptureSettings();
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Corrupted settings — start fresh
+            Services.AppLog.Error("Settings load failed, using defaults", ex);
         }
         return new CaptureSettings();
     }

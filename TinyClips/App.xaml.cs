@@ -90,6 +90,10 @@ public partial class App : Application
         _hiddenWindow.Activate();
         NativeMethods.ShowWindow(HiddenWindowHandle, NativeMethods.SW_HIDE);
 
+        // Startup diagnostics
+        LogStartupInfo();
+        CheckDeployment();
+
         // Initialize services
         _captureManager = new CaptureManager();
 
@@ -238,6 +242,35 @@ public partial class App : Application
         {
             return _normalIconUri;
         }
+    }
+
+    private static void LogStartupInfo()
+    {
+        var asm = typeof(App).Assembly.GetName();
+        var ver = asm.Version?.ToString(3) ?? "?";
+        var os = Environment.OSVersion.Version;
+        var arch = RuntimeInformation.ProcessArchitecture;
+        var dotnet = Environment.Version;
+        AppLog.Info($"TinyClips {ver} | .NET {dotnet} | {arch} | Windows {os}");
+    }
+
+    private static void CheckDeployment()
+    {
+        var baseDir = AppContext.BaseDirectory;
+        var criticalFiles = new[]
+        {
+            System.IO.Path.Combine(baseDir, "TinyClips.pri"),
+            System.IO.Path.Combine(baseDir, "Microsoft.UI.Xaml.Controls.pri"),
+            System.IO.Path.Combine(baseDir, "Microsoft.WindowsAppRuntime.pri"),
+        };
+
+        foreach (var file in criticalFiles)
+        {
+            if (!System.IO.File.Exists(file))
+                AppLog.Error($"MISSING deployment file: {file} — XAML windows will fail to load");
+        }
+
+        AppLog.Info($"BaseDirectory: {baseDir}");
     }
 
     public void Quit()

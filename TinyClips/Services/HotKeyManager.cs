@@ -44,12 +44,12 @@ public sealed partial class HotKeyManager : IDisposable
         NativeMethods.UnregisterHotKey(_hwnd, HOTKEY_VIDEO);
         NativeMethods.UnregisterHotKey(_hwnd, HOTKEY_GIF);
 
-        NativeMethods.RegisterHotKey(_hwnd, HOTKEY_SCREENSHOT,
-            (uint)screenshotMod | NativeMethods.MOD_NOREPEAT, (uint)screenshotVk);
-        NativeMethods.RegisterHotKey(_hwnd, HOTKEY_VIDEO,
-            (uint)videoMod | NativeMethods.MOD_NOREPEAT, (uint)videoVk);
-        NativeMethods.RegisterHotKey(_hwnd, HOTKEY_GIF,
-            (uint)gifMod | NativeMethods.MOD_NOREPEAT, (uint)gifVk);
+        LogHotKey("Screenshot", NativeMethods.RegisterHotKey(_hwnd, HOTKEY_SCREENSHOT,
+            (uint)screenshotMod | NativeMethods.MOD_NOREPEAT, (uint)screenshotVk));
+        LogHotKey("Video", NativeMethods.RegisterHotKey(_hwnd, HOTKEY_VIDEO,
+            (uint)videoMod | NativeMethods.MOD_NOREPEAT, (uint)videoVk));
+        LogHotKey("GIF", NativeMethods.RegisterHotKey(_hwnd, HOTKEY_GIF,
+            (uint)gifMod | NativeMethods.MOD_NOREPEAT, (uint)gifVk));
     }
 
     public void RegisterStopHotKey(Action onStop)
@@ -90,6 +90,12 @@ public sealed partial class HotKeyManager : IDisposable
             }
         }
         return DefWindowProc(hwnd, msg, wParam, lParam);
+    }
+
+    private static void LogHotKey(string name, bool success)
+    {
+        if (!success)
+            AppLog.Error($"HotKey '{name}' registration failed (already registered by another app?)");
     }
 
     public void Dispose()
