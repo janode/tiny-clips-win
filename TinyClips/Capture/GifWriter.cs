@@ -142,19 +142,48 @@ public sealed class GifWriter : IDisposable
             using var gif = new Image<Rgba32>(destWidth, destHeight);
             gif.Metadata.GetGifMetadata().RepeatCount = 0; // Loop forever
 
-            foreach (var (pixels, w, h) in _frames)
+            Image<Rgba32>? previousFrame = null;
+
+            try
             {
-                using var frame = BgraToImageSharp(pixels, w, h);
-
-                if (frame.Width != destWidth || frame.Height != destHeight)
+                for (int i = 0; i < _frames.Count; i++)
                 {
-                    frame.Mutate(x => x.Resize(destWidth, destHeight));
-                }
+                    var (pixels, w, h) = _frames[i];
+                    using var frame = BgraToImageSharp(pixels, w, h);
 
-                var addedFrame = gif.Frames.AddFrame(frame.Frames.RootFrame);
-                var frameMeta = addedFrame.Metadata.GetGifMetadata();
-                frameMeta.FrameDelay = frameDelay;
-                frameMeta.DisposalMethod = GifDisposalMethod.RestoreToBackground;
+                    if (frame.Width != destWidth || frame.Height != destHeight)
+                    {
+                        frame.Mutate(x => x.Resize(destWidth, destHeight));
+                    }
+
+                    Image<Rgba32> frameToAdd;
+
+                    if (i == 0 || previousFrame == null)
+                    {
+                        // First frame: add as-is (full image)
+                        frameToAdd = frame;
+                    }
+                    else
+                    {
+                        // Subsequent frames: diff against previous, transparent for unchanged pixels
+                        frameToAdd = ComputeFrameDiff(previousFrame, frame);
+                    }
+
+                    var addedFrame = gif.Frames.AddFrame(frameToAdd.Frames.RootFrame);
+                    var frameMeta = addedFrame.Metadata.GetGifMetadata();
+                    frameMeta.FrameDelay = frameDelay;
+                    frameMeta.DisposalMethod = GifDisposalMethod.NotDispose;
+
+                    if (frameToAdd != frame)
+                        frameToAdd.Dispose();
+
+                    previousFrame?.Dispose();
+                    previousFrame = frame.Clone();
+                }
+            }
+            finally
+            {
+                previousFrame?.Dispose();
             }
 
             // Remove the default placeholder frame created by new Image<>(...)
@@ -166,10 +195,57 @@ public sealed class GifWriter : IDisposable
 
             var encoder = new GifEncoder
             {
-                ColorTableMode = GifColorTableMode.Local
+                ColorTableMode = GifColorTableMode.Global
             };
             gif.Save(_outputPath!, encoder);
         });
+    }
+
+    /// <summary>
+    /// Computes a diff frame: unchanged pixels become transparent, changed pixels are kept.
+    /// Uses a small tolerance to absorb minor GDI+ capture noise.
+    /// </summary>
+    internal static Image<Rgba32> ComputeFrameDiff(Image<Rgba32> previous, Image<Rgba32> current)
+    {
+        int width = current.Width;
+        int height = current.Height;
+        var diff = new Image<Rgba32>(width, height, new Rgba32(0, 0, 0, 0));
+
+        bool allSame = true;
+
+        for (int y = 0; y < height; y++)
+        {
+            var prevRow = previous.Frames.RootFrame.PixelBuffer.DangerousGetRowSpan(y);
+            var curRow = current.Frames.RootFrame.PixelBuffer.DangerousGetRowSpan(y);
+            var diffRow = diff.Frames.RootFrame.PixelBuffer.DangerousGetRowSpan(y);
+
+            for (int x = 0; x < width; x++)
+            {
+                ref readonly var prev = ref prevRow[x];
+                ref readonly var cur = ref curRow[x];
+
+                // Tolerance of 2 per channel absorbs minor GDI+ capture noise
+                if (Math.Abs(prev.R - cur.R) <= 2 &&
+                    Math.Abs(prev.G - cur.G) <= 2 &&
+                    Math.Abs(prev.B - cur.B) <= 2)
+                {
+                    // Unchanged — leave transparent (already default)
+                }
+                else
+                {
+                    diffRow[x] = cur;
+                    allSame = false;
+                }
+            }
+        }
+
+        // If entire frame is unchanged, mark a single pixel to avoid an empty frame
+        if (allSame)
+        {
+            diff.Frames.RootFrame.PixelBuffer.DangerousGetRowSpan(0)[0] = current[0, 0];
+        }
+
+        return diff;
     }
 
     internal static Image<Rgba32> BgraToImageSharp(byte[] bgraPixels, int width, int height)

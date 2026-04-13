@@ -184,4 +184,97 @@ public class GifWriterTests
         Assert.Equal(3, Math.Max(1, (int)(100.0 / 30)));   // 30 fps → ~3cs
         Assert.Equal(1, Math.Max(1, (int)(100.0 / 100)));  // 100 fps → 1cs (min)
     }
+
+    // MARK: - Frame Diffing
+
+    [Fact]
+    public void ComputeFrameDiff_IdenticalFrames_AllTransparentExceptOnePixel()
+    {
+        using var prev = new Image<Rgba32>(4, 4, new Rgba32(100, 150, 200, 255));
+        using var curr = new Image<Rgba32>(4, 4, new Rgba32(100, 150, 200, 255));
+
+        using var diff = GifWriter.ComputeFrameDiff(prev, curr);
+
+        Assert.Equal(4, diff.Width);
+        Assert.Equal(4, diff.Height);
+
+        // When all pixels are identical, only (0,0) is set as a sentinel
+        int opaqueCount = 0;
+        for (int y = 0; y < diff.Height; y++)
+            for (int x = 0; x < diff.Width; x++)
+                if (diff[x, y].A > 0) opaqueCount++;
+
+        Assert.Equal(1, opaqueCount); // sentinel pixel at (0,0)
+    }
+
+    [Fact]
+    public void ComputeFrameDiff_CompletelyDifferent_AllOpaque()
+    {
+        using var prev = new Image<Rgba32>(3, 3, new Rgba32(0, 0, 0, 255));
+        using var curr = new Image<Rgba32>(3, 3, new Rgba32(255, 255, 255, 255));
+
+        using var diff = GifWriter.ComputeFrameDiff(prev, curr);
+
+        for (int y = 0; y < 3; y++)
+            for (int x = 0; x < 3; x++)
+            {
+                var px = diff[x, y];
+                Assert.Equal(255, px.R);
+                Assert.Equal(255, px.G);
+                Assert.Equal(255, px.B);
+                Assert.Equal(255, px.A);
+            }
+    }
+
+    [Fact]
+    public void ComputeFrameDiff_SinglePixelChanged_OnlyThatPixelOpaque()
+    {
+        using var prev = new Image<Rgba32>(3, 3, new Rgba32(50, 50, 50, 255));
+        using var curr = prev.Clone();
+        // Change pixel at (1, 1) beyond tolerance
+        curr[1, 1] = new Rgba32(200, 200, 200, 255);
+
+        using var diff = GifWriter.ComputeFrameDiff(prev, curr);
+
+        // The changed pixel should be the current value
+        Assert.Equal(200, diff[1, 1].R);
+        Assert.Equal(255, diff[1, 1].A);
+
+        // Other pixels should be transparent
+        Assert.Equal(0, diff[0, 0].A);
+        Assert.Equal(0, diff[2, 2].A);
+    }
+
+    [Fact]
+    public void ComputeFrameDiff_WithinTolerance_TreatedAsUnchanged()
+    {
+        // Tolerance is 2 per channel — a change of 2 should be ignored
+        using var prev = new Image<Rgba32>(2, 2, new Rgba32(100, 100, 100, 255));
+        using var curr = new Image<Rgba32>(2, 2, new Rgba32(102, 98, 101, 255));
+
+        using var diff = GifWriter.ComputeFrameDiff(prev, curr);
+
+        // All within tolerance → treated as identical (sentinel pixel only)
+        int opaqueCount = 0;
+        for (int y = 0; y < 2; y++)
+            for (int x = 0; x < 2; x++)
+                if (diff[x, y].A > 0) opaqueCount++;
+
+        Assert.Equal(1, opaqueCount); // sentinel only
+    }
+
+    [Fact]
+    public void ComputeFrameDiff_BeyondTolerance_DetectedAsChanged()
+    {
+        // A change of 3 should exceed the tolerance of 2
+        using var prev = new Image<Rgba32>(2, 2, new Rgba32(100, 100, 100, 255));
+        using var curr = new Image<Rgba32>(2, 2, new Rgba32(103, 100, 100, 255));
+
+        using var diff = GifWriter.ComputeFrameDiff(prev, curr);
+
+        // All pixels changed (R differs by 3)
+        for (int y = 0; y < 2; y++)
+            for (int x = 0; x < 2; x++)
+                Assert.Equal(255, diff[x, y].A);
+    }
 }
