@@ -15,9 +15,9 @@ public static class ClipboardHelper
         {
             var dataPackage = new DataPackage();
 
-            if (type == CaptureType.Screenshot)
+            if (type == CaptureType.Screenshot || type == CaptureType.Gif)
             {
-                // Copy screenshot as a bitmap via file reference
+                // Copy image as a bitmap via file reference — works in most apps
                 var file = StorageFile.GetFileFromPathAsync(filePath).AsTask().GetAwaiter().GetResult();
                 var stream = Windows.Storage.Streams.RandomAccessStreamReference.CreateFromFile(file);
                 dataPackage.SetBitmap(stream);

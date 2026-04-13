@@ -26,7 +26,7 @@ public sealed class CaptureSettings
     public string FileNameTemplate { get; set; } = "TinyClips {date} at {time}";
     public bool CopyScreenshotToClipboard { get; set; } = true;
     public bool CopyVideoToClipboard { get; set; } = false;
-    public bool CopyGifToClipboard { get; set; } = false;
+    public bool CopyGifToClipboard { get; set; } = true;
     public bool ShowInExplorer { get; set; } = false;
     public bool ShowSaveNotifications { get; set; } = true;
     public bool OpenAfterCapture { get; set; } = true;
