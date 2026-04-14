@@ -175,6 +175,48 @@ internal static partial class NativeMethods
         return info.rcMonitor;
     }
 
+    // MARK: - Clipboard
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool OpenClipboard(nint hWndNewOwner);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool CloseClipboard();
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool EmptyClipboard();
+
+    [LibraryImport("user32.dll")]
+    public static partial nint SetClipboardData(uint uFormat, nint hMem);
+
+    [LibraryImport("kernel32.dll")]
+    public static partial nint GlobalAlloc(uint uFlags, nuint dwBytes);
+
+    [LibraryImport("kernel32.dll")]
+    public static partial nint GlobalLock(nint hMem);
+
+    [LibraryImport("kernel32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GlobalUnlock(nint hMem);
+
+    [LibraryImport("kernel32.dll")]
+    public static partial nint GlobalFree(nint hMem);
+
+    [LibraryImport("gdi32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool DeleteObject(nint hObject);
+
+    public const uint CF_BITMAP = 2;
+    public const uint CF_DIB = 8;
+    public const uint CF_HDROP = 15;
+    public const uint GHND = 0x0042; // GMEM_MOVEABLE | GMEM_ZEROINIT
+
+    [LibraryImport("user32.dll", EntryPoint = "RegisterClipboardFormatW", StringMarshalling = StringMarshalling.Utf16)]
+    public static partial uint RegisterClipboardFormat(string lpszFormat);
+
     /// <summary>
     /// Show a file selected in Explorer.
     /// </summary>

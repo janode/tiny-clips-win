@@ -125,6 +125,11 @@ public sealed class CaptureManager : IDisposable
             if (settings.ShowScreenshotEditor)
             {
                 var bitmap = await ScreenshotCapture.CaptureRegionToBitmapAsync(region);
+
+                // Copy raw capture to clipboard immediately so user can paste without saving
+                if (settings.ShouldCopyToClipboard(CaptureType.Screenshot))
+                    ClipboardHelper.CopyBitmapToClipboard(bitmap);
+
                 ShowScreenshotEditor(bitmap);
                 return;
             }
@@ -309,7 +314,13 @@ public sealed class CaptureManager : IDisposable
                 {
                     AppLog.Info($"Video recording stopped: {path}");
                     if (CaptureSettings.Instance.ShowVideoTrimmer)
+                    {
+                        // Copy to clipboard immediately so user can paste without trimming
+                        if (CaptureSettings.Instance.ShouldCopyToClipboard(CaptureType.Video))
+                            ClipboardHelper.CopyToClipboard(path, CaptureType.Video);
+
                         ShowVideoTrimmer(path);
+                    }
                     else
                         SaveService.Instance.HandleSavedFile(path, CaptureType.Video);
                 }
@@ -329,7 +340,13 @@ public sealed class CaptureManager : IDisposable
                 string path = await writer.StopAsync();
                 AppLog.Info($"GIF recording stopped: {path}");
                 if (CaptureSettings.Instance.ShowGifTrimmer)
+                {
+                    // Copy to clipboard immediately so user can paste without trimming
+                    if (CaptureSettings.Instance.ShouldCopyToClipboard(CaptureType.Gif))
+                        ClipboardHelper.CopyToClipboard(path, CaptureType.Gif);
+
                     ShowGifTrimmer(path);
+                }
                 else
                     SaveService.Instance.HandleSavedFile(path, CaptureType.Gif);
             }
